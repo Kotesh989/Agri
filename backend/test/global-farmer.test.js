@@ -72,7 +72,10 @@ test('same farmer phone can be added by two admins and links to one farmer user'
     createdCustomers.push(payload);
     return { ...payload, _id: `customer-${createdCustomers.length}`, id: `customer-${createdCustomers.length}` };
   };
-  User.findOne = async () => (userCreateCount === 0 ? null : farmer);
+  User.findOne = async (filter) => {
+    if (filter.email) return null;
+    return userCreateCount === 0 ? null : farmer;
+  };
   User.create = async () => {
     userCreateCount += 1;
     return farmer;
@@ -106,6 +109,64 @@ test('same farmer phone can be added by two admins and links to one farmer user'
     assert.equal(String(createdCustomers[1].farmerUserId), 'farmer-global-1');
     assert.equal(createdCustomers[0].adminId, 'admin-a');
     assert.equal(createdCustomers[1].adminId, 'admin-b');
+  } finally {
+    Customer.findOne = originals.customerFindOne;
+    Customer.create = originals.customerCreate;
+    User.findOne = originals.userFindOne;
+    User.create = originals.userCreate;
+    FarmerStoreLink.findOneAndUpdate = originals.linkFindOneAndUpdate;
+  }
+});
+
+test('customer creation links existing farmer by email instead of creating duplicate user', async () => {
+  const originals = {
+    customerFindOne: Customer.findOne,
+    customerCreate: Customer.create,
+    userFindOne: User.findOne,
+    userCreate: User.create,
+    linkFindOneAndUpdate: FarmerStoreLink.findOneAndUpdate,
+  };
+
+  const farmer = {
+    _id: 'farmer-email-1',
+    id: 'farmer-email-1',
+    email: 'ravi@example.com',
+    mobileNumber: '9999999999',
+    role: 'FARMER',
+    save: async () => farmer,
+  };
+  let userCreateCalled = false;
+  let capturedCustomer;
+
+  Customer.findOne = async () => null;
+  Customer.create = async (payload) => {
+    capturedCustomer = payload;
+    return { ...payload, _id: 'customer-email-1', id: 'customer-email-1' };
+  };
+  User.findOne = async (filter) => {
+    if (filter.email === 'ravi@example.com') return farmer;
+    if (filter.role === 'FARMER' && filter.$or?.some((condition) => condition.email === 'ravi@example.com')) return farmer;
+    return null;
+  };
+  User.create = async () => {
+    userCreateCalled = true;
+    return farmer;
+  };
+  FarmerStoreLink.findOneAndUpdate = async () => ({ id: 'link-email-1' });
+
+  try {
+    const res = makeResponse();
+    await createCustomer({
+      body: { name: 'Ravi', mobileNumber: '8888888888', email: 'Ravi@Example.com' },
+      headers: {},
+      storeId: 'store-a',
+      user: { role: 'ADMIN', userId: 'admin-a' },
+    }, res);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(userCreateCalled, false);
+    assert.equal(String(capturedCustomer.farmerUserId), 'farmer-email-1');
+    assert.equal(capturedCustomer.email, 'ravi@example.com');
   } finally {
     Customer.findOne = originals.customerFindOne;
     Customer.create = originals.customerCreate;

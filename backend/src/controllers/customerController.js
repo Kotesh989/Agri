@@ -193,16 +193,28 @@ export const createCustomer = async (req, res) => {
     const adminId = getRequestAdminId(req);
     const storeId = getRequestStoreId(req);
     const normalizedMobileNumber = String(mobileNumber).trim();
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
     const existingCustomer = await Customer.findOne({ adminId, storeId, mobileNumber: normalizedMobileNumber });
     if (existingCustomer) {
       return res.status(400).json({ success: false, message: 'Customer with this mobile number already exists in this shop' });
     }
 
-    let farmer = await User.findOne({ role: 'FARMER', mobileNumber: normalizedMobileNumber });
+    const existingUserByEmail = normalizedEmail ? await User.findOne({ email: normalizedEmail }) : null;
+    if (existingUserByEmail && existingUserByEmail.role !== 'FARMER') {
+      return res.status(400).json({ success: false, message: 'This email is already used by an admin account. Use the farmer email or leave email blank.' });
+    }
+
+    let farmer = await User.findOne({
+      role: 'FARMER',
+      $or: [
+        { mobileNumber: normalizedMobileNumber },
+        ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+      ],
+    });
     const linkedExistingFarmer = Boolean(farmer);
     if (!farmer) {
       farmer = await User.create({
-        email,
+        email: normalizedEmail,
         mobileNumber: normalizedMobileNumber,
         password: password ? await hashPassword(password) : await hashPassword(crypto.randomBytes(24).toString('hex')),
         name,
@@ -210,7 +222,8 @@ export const createCustomer = async (req, res) => {
         isPhoneVerified: false,
       });
     } else {
-      if (!farmer.email && email) farmer.email = email;
+      if (!farmer.email && normalizedEmail) farmer.email = normalizedEmail;
+      if (!farmer.mobileNumber && normalizedMobileNumber) farmer.mobileNumber = normalizedMobileNumber;
       if (password) farmer.password = await hashPassword(password);
       await farmer.save();
     }
@@ -221,7 +234,7 @@ export const createCustomer = async (req, res) => {
       storeId,
       name,
       mobileNumber: normalizedMobileNumber,
-      email,
+      email: normalizedEmail,
       address,
       city,
       village,
