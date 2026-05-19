@@ -1,0 +1,41 @@
+{
+  "name": "agri-fertilizer-backend",
+  "version": "1.0.0",
+  "description": "Agri Fertilizer Shop Management System Backend",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/db/seed.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "fertilizer",
+    "shop",
+    "management",
+    "system"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.5.2",
+    "express-validator": "^7.0.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.6.2",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.7",
+    "pdfkit": "^0.13.0",
+    "qrcode": "^1.5.1",
+    "resend": "^6.12.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

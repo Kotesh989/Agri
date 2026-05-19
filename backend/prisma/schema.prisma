@@ -1,0 +1,427 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductCategory {
+  FERTILIZER
+  PESTICIDE
+}
+
+enum UserRole {
+  ADMIN
+  FARMER
+}
+
+// User model for authentication
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  mobileNumber String? @unique
+  password  String
+  name      String
+  role      UserRole   @default(FARMER)
+  isActive  Boolean    @default(true)
+  adminId   String?
+  admin     User?      @relation("AdminFarmers", fields: [adminId], references: [id])
+  farmers   User[]     @relation("AdminFarmers")
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  passwordResetOtps PasswordResetOtp[]
+  ownedCustomers Customer[] @relation("AdminCustomers")
+  ownedPurchasedItems CustomerPurchasedItem[] @relation("AdminCustomerPurchasedItems")
+  ownedProducts Product[] @relation("AdminProducts")
+  ownedSuppliers Supplier[] @relation("AdminSuppliers")
+  ownedPurchases Purchase[] @relation("AdminPurchases")
+  ownedInvoices Invoice[] @relation("AdminInvoices")
+  ownedPayments Payment[] @relation("AdminPayments")
+  settings Settings?
+  storesOwned Store[]
+  farmerStoreLinks FarmerStoreLink[]
+  farmerAuthOtps FarmerAuthOtp[]
+
+  @@index([adminId])
+  @@map("users")
+}
+
+model Store {
+  id                 String            @id @default(cuid())
+  ownerAdminId       String
+  ownerAdmin         User              @relation(fields: [ownerAdminId], references: [id])
+  name               String
+  ownerName          String
+  mobileNumber       String?
+  address            String?
+  village            String?
+  taluk              String?
+  district           String?
+  state              String?
+  gstNumber          String?
+  logo               String?
+  subscriptionStatus String            @default("ACTIVE")
+  links              FarmerStoreLink[]
+  settings           StoreSettings?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@map("stores")
+}
+
+model FarmerStoreLink {
+  id            String   @id @default(cuid())
+  farmerId      String
+  farmer        User     @relation(fields: [farmerId], references: [id])
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id])
+  customerId    String?
+  lastVisitDate DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([farmerId, storeId])
+  @@map("farmer_store_links")
+}
+
+model StoreSettings {
+  id              String   @id @default(cuid())
+  storeId         String   @unique
+  store           Store    @relation(fields: [storeId], references: [id])
+  invoicePrefix   String   @default("INV")
+  receiptPrefix   String   @default("RCP")
+  currencySymbol  String   @default("₹")
+  expiryAlertDays Int      @default(30)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
+model FarmerAuthOtp {
+  id                String   @id @default(cuid())
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id])
+  identifier        String
+  channel           String
+  otpHash           String
+  expiresAt         DateTime
+  resendAvailableAt DateTime
+  attempts          Int      @default(0)
+  consumedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("farmer_auth_otps")
+}
+
+// Customer model
+model Customer {
+  id              String   @id @default(cuid())
+  adminId         String
+  admin           User     @relation("AdminCustomers", fields: [adminId], references: [id])
+  name            String
+  mobileNumber    String   @unique
+  email           String?
+  address         String?
+  city            String?
+  state           String?
+  pinCode         String?
+  creditLimit     Float    @default(0)
+  totalCredit     Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  invoices        Invoice[]
+  payments        Payment[]
+  purchasedItems  CustomerPurchasedItem[]
+  users           User[]
+
+  @@index([adminId])
+  @@map("customers")
+}
+
+model PasswordResetOtp {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel    String
+  target     String
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_otps")
+}
+
+model CustomerPurchasedItem {
+  id                  String             @id @default(cuid())
+  adminId             String
+  admin               User               @relation("AdminCustomerPurchasedItems", fields: [adminId], references: [id])
+  customerId          String
+  customer            Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id])
+  productName         String
+  category            ProductCategory
+  quantity            Float
+  unitType            String
+  pricePerUnit        Float
+  totalAmount         Float
+  pesticideWeight     Float?
+  pesticideWeightUnit String?
+  purchaseDate        DateTime
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([adminId])
+  @@index([customerId])
+  @@index([productId])
+  @@index([category])
+  @@map("customer_purchased_items")
+}
+
+// Product/Fertilizer model
+model Product {
+  id                  String   @id @default(cuid())
+  adminId             String
+  admin               User     @relation("AdminProducts", fields: [adminId], references: [id])
+  name                String
+  category            ProductCategory @default(FERTILIZER)
+  brandName           String
+  stockQuantity       Float    @default(0)
+  unitType            String
+  pricePerUnit        Float    @default(0)
+  pesticideWeight     Float?
+  pesticideWeightUnit String?
+  lowStockAlert       Float    @default(0)
+  description         String?
+  supplierId          String?
+  supplier            Supplier? @relation(fields: [supplierId], references: [id])
+
+  // Legacy sales fields retained for current invoice and purchase compatibility.
+  brand               String?
+  npkRatio            String?
+  batchNumber         String?
+  expiryDate          DateTime?
+  purchasePrice       Float    @default(0)
+  sellingPrice        Float    @default(0)
+  gstPercentage       Float    @default(0)
+  unit                String?
+  currentStock        Int      @default(0)
+  minimumStock        Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  invoiceItems        InvoiceItem[]
+  purchaseItems       PurchaseItem[]
+  stockAlerts         StockAlert[]
+  purchasedItems      CustomerPurchasedItem[]
+
+  @@index([adminId])
+  @@map("products")
+}
+
+// Supplier model
+model Supplier {
+  id              String   @id @default(cuid())
+  adminId         String
+  admin           User     @relation("AdminSuppliers", fields: [adminId], references: [id])
+  name            String
+  contactPerson   String?
+  mobileNumber    String
+  email           String?
+  address         String?
+  city            String?
+  state           String?
+  pinCode         String?
+  gstNumber       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  purchases       Purchase[]
+  products        Product[]
+
+  @@index([adminId])
+  @@map("suppliers")
+}
+
+// Purchase model
+model Purchase {
+  id              String   @id @default(cuid())
+  adminId         String
+  admin           User     @relation("AdminPurchases", fields: [adminId], references: [id])
+  purchaseNumber  String   @unique
+  supplierId      String
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  purchaseDate    DateTime
+  deliveryDate    DateTime?
+  totalAmount     Float
+  status          String   @default("PENDING")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  items           PurchaseItem[]
+
+  @@index([adminId])
+  @@map("purchases")
+}
+
+// Purchase Items
+model PurchaseItem {
+  id              String   @id @default(cuid())
+  purchaseId      String
+  purchase        Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("purchase_items")
+}
+
+// Invoice/Sales model
+model Invoice {
+  id              String   @id @default(cuid())
+  adminId         String
+  admin           User     @relation("AdminInvoices", fields: [adminId], references: [id])
+  invoiceNumber   String   @unique
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  invoiceDate     DateTime @default(now())
+  dueDate         DateTime?
+  totalQuantity   Int
+  subtotal        Float
+  gstAmount       Float
+  totalAmount     Float
+  paidAmount      Float    @default(0)
+  status          String   @default("PENDING")
+  paymentMethod   String?  // CASH, CREDIT, CHEQUE
+  notes           String?
+  pdfUrl          String?  // Supabase Storage URL
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  items           InvoiceItem[]
+  payments        Payment[]
+
+  @@index([adminId])
+  @@map("invoices")
+}
+
+// Invoice Items
+model InvoiceItem {
+  id              String   @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  gstPercentage   Float
+  gstAmount       Float
+  lineTotal       Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("invoice_items")
+}
+
+// Payment model for tracking customer payments
+model Payment {
+  id              String   @id @default(cuid())
+  adminId         String
+  admin           User     @relation("AdminPayments", fields: [adminId], references: [id])
+  invoiceId       String?
+  invoice         Invoice? @relation(fields: [invoiceId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  amount          Float
+  paymentDate     DateTime @default(now())
+  paymentMethod   String   // CASH, CHEQUE, TRANSFER
+  referenceNumber String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([adminId])
+  @@map("payments")
+}
+
+// Stock Alert model
+model StockAlert {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  currentStock    Int
+  minimumStock    Int
+  alertType       String
+  isResolved      Boolean  @default(false)
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("stock_alerts")
+}
+
+// Settings model for shop configuration
+model Settings {
+  id              String   @id @default(cuid())
+  adminId         String   @unique
+  admin           User     @relation(fields: [adminId], references: [id])
+  shopName        String   @default("Agri Fertilizer Shop")
+  shopAddress     String?
+  shopCity        String?
+  shopState       String?
+  shopPinCode     String?
+  shopPhone       String?
+  shopEmail       String?
+  gstNumber       String?
+  invoicePrefix   String   @default("INV")
+  receiptPrefix   String   @default("RCP")
+  currencySymbol  String   @default("₹")
+  expiryAlertDays Int      @default(30)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// Backup/Restore model
+model Backup {
+  id              String   @id @default(cuid())
+  fileName        String
+  backupUrl       String   // Supabase Storage URL
+  backupSize      Int      // in bytes
+  backupType      String   // FULL, PARTIAL
+  status          String   @default("COMPLETED")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("backups")
+}
+

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: agri_fertilizer
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/agri_fertilizer
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key}
+      FRONTEND_URL: http://localhost:5173
+      NODE_ENV: development
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend/src:/app/src
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:3000"
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

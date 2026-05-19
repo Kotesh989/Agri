@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: agri-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run prisma:generate && npx prisma migrate deploy
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+      - key: JWT_SECRET
+        value: ${JWT_SECRET}
+      - key: FRONTEND_URL
+        value: ${FRONTEND_URL}
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        value: ${SUPABASE_URL}
+      - key: SUPABASE_ANON_KEY
+        value: ${SUPABASE_ANON_KEY}
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: ${SUPABASE_SERVICE_ROLE_KEY}

@@ -1,0 +1,526 @@
+import crypto from 'node:crypto';
+import { Customer, FarmerAuthOtp, FarmerStoreLink, PasswordResetOtp, Settings, Store, User } from '../models/index.js';
+import { hashPassword, comparePassword } from '../utils/password.js';
+import { generateToken } from '../utils/jwt.js';
+import { sendEmailOtp } from '../utils/otpDelivery.js';
+
+const publicUser = (user) => ({
+  id: user.id,
+  email: user.email,
+  mobileNumber: user.mobileNumber,
+  name: user.name,
+  role: user.role,
+  adminId: user.role === 'ADMIN' ? user.id : user.adminId?.toString(),
+  isActive: user.isActive,
+  isPhoneVerified: user.isPhoneVerified,
+  customerId: user.customerId?.toString(),
+});
+
+const adminTokenId = (user) => (user.role === 'ADMIN' ? user.id : user.adminId?.toString());
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 24 * 60 * 60 * 1000,
+};
+const setAuthCookie = (res, token) => res.cookie('auth_token', token, cookieOptions);
+
+const createDefaultStoreForAdmin = async (admin) => {
+  const store = await Store.create({
+    ownerAdminId: admin._id,
+    name: `${admin.name}'s Store`,
+    ownerName: admin.name,
+    subscriptionStatus: 'ACTIVE',
+  });
+  await Settings.findOneAndUpdate(
+    { adminId: admin._id },
+    { adminId: admin._id, storeId: store._id, shopName: store.name },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+  );
+  return store;
+};
+
+const createUser = async ({ email, mobileNumber, password, name, role, customerId, adminId, isPhoneVerified }) => {
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
+  const normalizedMobileNumber = mobileNumber ? String(mobileNumber).trim() : undefined;
+  const existingUser = await User.findOne({
+    $or: [
+      ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+      ...(normalizedMobileNumber ? [{ mobileNumber: normalizedMobileNumber }] : []),
+    ],
+  });
+  if (existingUser) throw new Error('User already exists');
+
+  return User.create({
+    email: normalizedEmail,
+    mobileNumber: normalizedMobileNumber,
+    password: password ? await hashPassword(password) : undefined,
+    name,
+    role,
+    customerId,
+    adminId,
+    isPhoneVerified: Boolean(isPhoneVerified),
+  });
+};
+
+export const register = async (req, res) => {
+  try {
+    const { email, password, name, customerId, mobileNumber, adminId, adminEmail } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ success: false, message: 'Email, password, and name are required' });
+    }
+
+    const admin = await User.findOne({
+      role: 'ADMIN',
+      isActive: true,
+      ...(adminId ? { _id: adminId } : { email: String(adminEmail || '').trim().toLowerCase() }),
+    });
+    if (!admin) {
+      return res.status(400).json({ success: false, message: 'A valid store admin email is required for farmer registration' });
+    }
+
+    const user = await createUser({ email, mobileNumber, password, name, role: 'FARMER', customerId, adminId: admin._id });
+
+    const token = generateToken(user.id, user.email, user.role, adminTokenId(user));
+    setAuthCookie(res, token);
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: { user: publicUser(user), token },
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const registerAdmin = async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    if (!email || !password || !name) {
+      return res.status(400).json({ success: false, message: 'Email, password, and name are required' });
+    }
+    const user = await createUser({ email, password, name, role: 'ADMIN' });
+    user.adminId = user._id;
+    await user.save();
+    const store = await createDefaultStoreForAdmin(user);
+    res.status(201).json({ success: true, message: 'Admin account created successfully', data: { user: publicUser(user), store } });
+  } catch (error) {
+    if (error.message === 'User already exists') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error('Register admin error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const registerFarmer = async (req, res) => {
+  try {
+    const { name, email, mobileNumber, password, address, village, taluk, district, state, preferredLanguage, profilePhoto, adminId, adminEmail } = req.body;
+    if (!name || !email || !mobileNumber || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email, phone number, and password are required' });
+    }
+    const admin = await User.findOne({
+      role: 'ADMIN',
+      isActive: true,
+      ...(adminId ? { _id: adminId } : { email: String(adminEmail || '').trim().toLowerCase() }),
+    });
+    if (!admin) {
+      return res.status(400).json({ success: false, message: 'A valid store admin email is required for farmer registration' });
+    }
+    const customer = await Customer.create({
+      adminId: admin._id,
+      name,
+      email,
+      mobileNumber,
+      address,
+      village,
+      taluk,
+      district,
+      state,
+      creditLimit: 0,
+    });
+    const user = await createUser({
+      email,
+      mobileNumber,
+      password,
+      name,
+      role: 'FARMER',
+      customerId: customer._id,
+      adminId: admin._id,
+      village,
+      taluk,
+      district,
+      state,
+      preferredLanguage,
+      profilePhoto,
+    });
+    res.status(201).json({ success: true, message: 'Farmer account created successfully', data: { user: publicUser(user), customer } });
+  } catch (error) {
+    if (error.code === 11000 || error.message === 'User already exists') {
+      return res.status(400).json({ success: false, message: 'Farmer account already exists' });
+    }
+    console.error('Register farmer error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+const loginWithRole = async (req, res, expectedRole) => {
+  try {
+    const { identifier, email, password } = req.body;
+    const loginId = String(identifier || email || '').trim();
+
+    if (!loginId || !password) {
+      return res.status(400).json({ success: false, message: 'Email or phone number and password are required' });
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { email: loginId.toLowerCase() },
+        { mobileNumber: loginId },
+      ],
+    });
+    if (!user || !user.isActive || (expectedRole && user.role !== expectedRole)) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const isPasswordValid = user.password ? await comparePassword(password, user.password) : false;
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const token = generateToken(user.id, user.email, user.role, adminTokenId(user));
+    setAuthCookie(res, token);
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: { user: publicUser(user), token },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const login = async (req, res) => loginWithRole(req, res);
+export const adminLogin = async (req, res) => loginWithRole(req, res, 'ADMIN');
+export const farmerLogin = async (req, res) => loginWithRole(req, res, 'FARMER');
+
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+const normalizeIdentifier = (value) => String(value || '').trim();
+
+export const requestFarmerOtp = async (req, res) => {
+  try {
+    const identifier = normalizeIdentifier(req.body.identifier);
+    const isEmail = identifier.includes('@');
+    const channel = isEmail ? 'EMAIL' : 'PHONE';
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Mobile number is required for farmer OTP login' });
+    }
+
+    const existingUser = await getUserByIdentifier(identifier);
+    if (!existingUser && !req.body.profile) {
+      return res.status(404).json({ success: false, message: 'Farmer account not found for this mobile number' });
+    }
+    if (existingUser && existingUser.role !== 'FARMER') {
+      return res.status(403).json({ success: false, message: 'OTP login is available for farmers only' });
+    }
+
+    const recentOtp = await FarmerAuthOtp.findOne({ identifier, consumedAt: null }).sort({ createdAt: -1 });
+    if (recentOtp && recentOtp.resendAvailableAt > new Date()) {
+      return res.status(429).json({
+        success: false,
+        message: 'Please wait before requesting another OTP',
+        data: { resendAvailableAt: recentOtp.resendAvailableAt },
+      });
+    }
+
+    const otp = generateOtp();
+    await FarmerAuthOtp.deleteMany({ identifier, consumedAt: null });
+    await FarmerAuthOtp.create({
+      identifier,
+      channel,
+      otpHash: await hashPassword(otp),
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      resendAvailableAt: new Date(Date.now() + 60 * 1000),
+      profile: req.body.profile || undefined,
+    });
+
+    if (channel === 'EMAIL') {
+      await sendEmailOtp({ to: identifier, otp, purpose: 'login' });
+    } else {
+      console.info(`Farmer phone OTP for ${identifier}: ${otp}`);
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP sent',
+      data: {
+        resendAfterSeconds: 60,
+        channel,
+        ...(process.env.NODE_ENV === 'production' ? {} : { devOtp: otp }),
+      },
+    });
+  } catch (error) {
+    console.error('Request farmer OTP error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+  }
+};
+
+const createFarmerFromOtpProfile = async (identifier, _channel, profile) => {
+  const isEmail = identifier.includes('@');
+  const email = isEmail ? identifier : profile?.email;
+  const mobileNumber = isEmail ? profile?.mobileNumber : identifier;
+  const name = profile?.fullName || profile?.name || `Farmer ${mobileNumber || email}`;
+
+  const user = await User.create({
+    email,
+    mobileNumber,
+    password: await hashPassword(crypto.randomBytes(24).toString('hex')),
+    name,
+    role: 'FARMER',
+    village: profile?.village,
+    taluk: profile?.taluk,
+    district: profile?.district,
+    state: profile?.state,
+    preferredLanguage: profile?.preferredLanguage === 'kn' ? 'kn' : 'en',
+    profilePhoto: profile?.profilePhoto,
+    isPhoneVerified: true,
+  });
+  return user;
+};
+
+export const verifyFarmerOtp = async (req, res) => {
+  try {
+    const identifier = normalizeIdentifier(req.body.identifier);
+    const otp = normalizeIdentifier(req.body.otp);
+    if (!identifier || !otp) {
+      return res.status(400).json({ success: false, message: 'Identifier and OTP are required' });
+    }
+
+    const record = await FarmerAuthOtp.findOne({
+      identifier,
+      consumedAt: null,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (!record || record.attempts >= 5 || !(await comparePassword(otp, record.otpHash))) {
+      if (record) {
+        record.attempts += 1;
+        await record.save();
+      }
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    let user = await getUserByIdentifier(identifier);
+    if (!user) user = await createFarmerFromOtpProfile(identifier, record.channel, record.profile);
+    if (user.role !== 'FARMER') {
+      return res.status(403).json({ success: false, message: 'OTP login is available for farmers only' });
+    }
+
+    user.isPhoneVerified = true;
+    await user.save();
+    const token = generateToken(user.id, user.email, user.role, adminTokenId(user));
+    record.consumedAt = new Date();
+    await record.save();
+    setAuthCookie(res, token);
+    res.json({ success: true, message: 'OTP verified', data: { user: publicUser(user), token } });
+  } catch (error) {
+    console.error('Verify farmer OTP error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+  }
+};
+
+export const logout = async (_req, res) => {
+  res.clearCookie('auth_token', cookieOptions);
+  res.json({ success: true, message: 'Logged out' });
+};
+
+const getUserByIdentifier = async (identifier) => {
+  const value = String(identifier || '').trim();
+  return User.findOne({
+    $or: [
+      { email: value.toLowerCase() },
+      { mobileNumber: value },
+    ],
+  });
+};
+
+const getCustomerByIdentifier = async (identifier) => {
+  const value = String(identifier || '').trim();
+  return Customer.findOne({
+    $or: [
+      { email: value.toLowerCase() },
+      { mobileNumber: value },
+    ],
+  });
+};
+
+const createFarmerUserFromCustomer = async (customer) => {
+  if (!customer?.email || !customer?.mobileNumber) return null;
+
+  try {
+    return await User.create({
+      email: customer.email,
+      mobileNumber: customer.mobileNumber,
+      password: await hashPassword(crypto.randomBytes(24).toString('hex')),
+      name: customer.name,
+      role: 'FARMER',
+      customerId: customer._id,
+      adminId: customer.adminId,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return User.findOne({
+        $or: [
+          { email: customer.email.toLowerCase() },
+          { mobileNumber: customer.mobileNumber },
+        ],
+      });
+    }
+    throw error;
+  }
+};
+
+const getPasswordResetUser = async (identifier) => {
+  const user = await getUserByIdentifier(identifier);
+  if (user) return user;
+
+  const customer = await getCustomerByIdentifier(identifier);
+  if (!customer) return null;
+
+  return createFarmerUserFromCustomer(customer);
+};
+
+export const requestPasswordResetOtp = async (req, res) => {
+  try {
+    const identifier = String(req.body.identifier || '').trim();
+    const channel = 'EMAIL';
+    if (!identifier || !identifier.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Account email is required' });
+    }
+
+    const user = await getPasswordResetUser(identifier);
+    if (!user) {
+      return res.json({ success: true, message: 'If the account exists, an OTP has been sent' });
+    }
+    const target = user.email;
+    if (!target) {
+      return res.status(400).json({ success: false, message: 'Email is not available for this account' });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    await PasswordResetOtp.deleteMany({ userId: user._id, consumedAt: null });
+    await PasswordResetOtp.create({
+      userId: user._id,
+      channel,
+      target,
+      otpHash: await hashPassword(otp),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    await sendEmailOtp({ to: target, otp });
+
+    res.json({ success: true, message: 'If the account exists, an OTP has been sent' });
+  } catch (error) {
+    console.error('Request password reset OTP error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+  }
+};
+
+export const resetPasswordWithOtp = async (req, res) => {
+  try {
+    const identifier = String(req.body.identifier || '').trim();
+    const otp = String(req.body.otp || '').trim();
+    const newPassword = String(req.body.newPassword || '');
+    if (!identifier || !otp || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'Identifier, OTP, and password of at least 8 characters are required' });
+    }
+
+    const user = await getUserByIdentifier(identifier);
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    const resetRecord = await PasswordResetOtp.findOne({
+      userId: user._id,
+      consumedAt: null,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (!resetRecord || resetRecord.attempts >= 5 || !(await comparePassword(otp, resetRecord.otpHash))) {
+      if (resetRecord) {
+        resetRecord.attempts += 1;
+        await resetRecord.save();
+      }
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    user.password = await hashPassword(newPassword);
+    await user.save();
+    resetRecord.consumedAt = new Date();
+    await resetRecord.save();
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password with OTP error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.json({ success: true, data: publicUser(user) });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const listUsers = async (req, res) => {
+  try {
+    const users = await User.find({
+      $or: [
+        { _id: req.user.userId },
+        { adminId: req.user.userId },
+      ],
+    }).select('-password').sort({ createdAt: -1 });
+    res.json({ success: true, data: users });
+  } catch (error) {
+    console.error('List users error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findOne({
+      _id: userId,
+      $or: [
+        { _id: req.user.userId },
+        { adminId: req.user.userId },
+      ],
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User ${user.isActive ? 'activated' : 'deactivated'}`,
+      data: publicUser(user),
+    });
+  } catch (error) {
+    console.error('Toggle user status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};

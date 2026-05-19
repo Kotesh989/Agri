@@ -1,0 +1,442 @@
+import mongoose from 'mongoose';
+
+const { Schema } = mongoose;
+
+const baseOptions = {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    versionKey: false,
+    transform: (_, ret) => {
+      ret.id = ret._id.toString();
+      delete ret._id;
+    },
+  },
+  toObject: { virtuals: true, versionKey: false },
+};
+
+const userSchema = new Schema({
+  email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+  mobileNumber: { type: String, unique: true, sparse: true, trim: true },
+  password: String,
+  name: { type: String, required: true },
+  role: { type: String, enum: ['ADMIN', 'FARMER'], default: 'FARMER' },
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+  isPhoneVerified: { type: Boolean, default: false },
+  village: String,
+  taluk: String,
+  district: String,
+  state: String,
+  preferredLanguage: { type: String, enum: ['en', 'kn'], default: 'en' },
+  profilePhoto: String,
+  isActive: { type: Boolean, default: true },
+}, baseOptions);
+
+const passwordResetOtpSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  channel: { type: String, enum: ['EMAIL', 'PHONE'], required: true },
+  target: { type: String, required: true },
+  otpHash: { type: String, required: true },
+  expiresAt: { type: Date, required: true, index: true },
+  attempts: { type: Number, default: 0 },
+  consumedAt: Date,
+}, baseOptions);
+
+const farmerAuthOtpSchema = new Schema({
+  identifier: { type: String, required: true, index: true },
+  channel: { type: String, enum: ['EMAIL', 'PHONE'], required: true },
+  otpHash: { type: String, required: true },
+  expiresAt: { type: Date, required: true, index: true },
+  attempts: { type: Number, default: 0 },
+  resendAvailableAt: { type: Date, required: true },
+  consumedAt: Date,
+  profile: {
+    fullName: String,
+    mobileNumber: String,
+    email: String,
+    village: String,
+    taluk: String,
+    district: String,
+    state: String,
+    preferredLanguage: String,
+    profilePhoto: String,
+  },
+}, baseOptions);
+
+const storeSchema = new Schema({
+  ownerAdminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  name: { type: String, required: true },
+  ownerName: { type: String, required: true },
+  mobileNumber: String,
+  address: String,
+  village: String,
+  taluk: String,
+  district: String,
+  state: String,
+  gstNumber: String,
+  logo: String,
+  subscriptionStatus: { type: String, default: 'ACTIVE' },
+}, baseOptions);
+
+const farmerStoreLinkSchema = new Schema({
+  farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+  lastVisitDate: Date,
+}, baseOptions);
+
+farmerStoreLinkSchema.index({ farmerId: 1, storeId: 1 }, { unique: true });
+
+const customerSchema = new Schema({
+  farmerUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  name: { type: String, required: true },
+  mobileNumber: { type: String, required: true, trim: true },
+  email: String,
+  gstNumber: String,
+  address: String,
+  city: String,
+  village: String,
+  taluk: String,
+  district: String,
+  state: String,
+  aadhaarNumber: String,
+  pinCode: String,
+  creditLimit: { type: Number, default: 0 },
+  totalCredit: { type: Number, default: 0 },
+  totalPurchases: { type: Number, default: 0 },
+  lastPurchaseDate: Date,
+}, baseOptions);
+customerSchema.index({ adminId: 1, storeId: 1, mobileNumber: 1 }, { unique: true });
+customerSchema.index({ name: 'text', email: 'text', mobileNumber: 'text', village: 'text' });
+
+const customerPurchasedItemSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
+  productName: { type: String, required: true, trim: true },
+  category: { type: String, enum: ['FERTILIZER', 'PESTICIDE'], required: true },
+  quantity: { type: Number, required: true },
+  unitType: { type: String, required: true, trim: true },
+  pricePerUnit: { type: Number, required: true },
+  totalAmount: { type: Number, required: true },
+  pesticideWeight: Number,
+  pesticideWeightUnit: { type: String, enum: ['Gram', 'Kg', 'ML', 'Litre'] },
+  purchaseDate: { type: Date, required: true },
+  notes: String,
+}, baseOptions);
+
+customerPurchasedItemSchema.virtual('customer', {
+  ref: 'Customer',
+  localField: 'customerId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+customerPurchasedItemSchema.virtual('product', {
+  ref: 'Product',
+  localField: 'productId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+const productSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  name: { type: String, required: true },
+  brandName: { type: String, required: true, trim: true },
+  category: { type: String, enum: ['FERTILIZER', 'PESTICIDE'], required: true, default: 'FERTILIZER' },
+  stockQuantity: { type: Number, default: 0 },
+  unitType: { type: String, required: true, trim: true },
+  pricePerUnit: { type: Number, required: true, default: 0 },
+  pesticideWeight: Number,
+  pesticideWeightUnit: { type: String, enum: ['Gram', 'Kg', 'ML', 'Litre'] },
+  lowStockAlert: { type: Number, default: 0 },
+  description: String,
+  packSize: String,
+  imageUrl: String,
+  recommendedCrops: [String],
+  applicationInstructions: String,
+  supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier' },
+
+  // Retained for the existing invoice and purchase flows.
+  brand: String,
+  npkRatio: String,
+  batchNumber: String,
+  expiryDate: Date,
+  purchasePrice: { type: Number, default: 0 },
+  sellingPrice: { type: Number, default: 0 },
+  gstPercentage: { type: Number, default: 0 },
+  gstRate: { type: Number, default: 0 },
+  unit: String,
+  currentStock: { type: Number, default: 0 },
+  minimumStock: { type: Number, default: 0 },
+}, baseOptions);
+
+productSchema.index({ adminId: 1, storeId: 1, category: 1, stockQuantity: 1 });
+productSchema.index({ name: 'text', brandName: 'text', npkRatio: 'text', description: 'text' });
+
+const supplierSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  name: { type: String, required: true },
+  contactPerson: String,
+  mobileNumber: { type: String, required: true },
+  email: String,
+  address: String,
+  city: String,
+  state: String,
+  pinCode: String,
+  gstNumber: String,
+}, baseOptions);
+
+const invoiceItemSchema = new Schema({
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+  productName: String,
+  quantity: Number,
+  unit: String,
+  unitPrice: Number,
+  sellingPrice: Number,
+  totalPrice: Number,
+  subtotal: Number,
+  gstPercentage: Number,
+  gstRate: Number,
+  gstAmount: Number,
+  lineTotal: Number,
+  total: Number,
+}, { _id: true, toJSON: baseOptions.toJSON, toObject: baseOptions.toObject });
+
+invoiceItemSchema.virtual('product', {
+  ref: 'Product',
+  localField: 'productId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+const invoiceSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  farmerUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  invoiceNumber: { type: String, required: true, unique: true },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
+  storeSnapshot: {
+    storeName: String,
+    ownerName: String,
+    phone: String,
+    address: String,
+  },
+  customerSnapshot: {
+    name: String,
+    mobileNumber: String,
+    email: String,
+    village: String,
+    gstNumber: String,
+  },
+  invoiceDate: { type: Date, default: Date.now },
+  dueDate: Date,
+  totalQuantity: Number,
+  subtotal: Number,
+  gstAmount: Number,
+  discount: { type: Number, default: 0 },
+  roundOff: { type: Number, default: 0 },
+  totalAmount: Number,
+  amountPaid: { type: Number, default: 0 },
+  paidAmount: { type: Number, default: 0 },
+  balanceDue: { type: Number, default: 0 },
+  status: { type: String, default: 'PENDING' },
+  paymentMethod: String,
+  notes: String,
+  pdfUrl: String,
+  items: [invoiceItemSchema],
+}, baseOptions);
+
+invoiceSchema.index({ adminId: 1, storeId: 1, invoiceDate: -1, status: 1 });
+
+invoiceSchema.virtual('customer', {
+  ref: 'Customer',
+  localField: 'customerId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+const paymentSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  invoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice' },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
+  amount: Number,
+  paymentDate: { type: Date, default: Date.now },
+  paymentMethod: String,
+  referenceNumber: String,
+  notes: String,
+}, baseOptions);
+
+paymentSchema.virtual('customer', {
+  ref: 'Customer',
+  localField: 'customerId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+paymentSchema.virtual('invoice', {
+  ref: 'Invoice',
+  localField: 'invoiceId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+paymentSchema.index({ adminId: 1, storeId: 1, customerId: 1, invoiceId: 1, paymentDate: -1 });
+
+const purchaseItemSchema = new Schema({
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+  productName: String,
+  quantity: Number,
+  unit: String,
+  unitPrice: Number,
+  purchasePrice: Number,
+  sellingPrice: Number,
+  totalPrice: Number,
+  totalCost: Number,
+  batchNumber: String,
+  expiryDate: Date,
+  gstRate: { type: Number, default: 0 },
+  gstAmount: { type: Number, default: 0 },
+}, { _id: true, toJSON: baseOptions.toJSON, toObject: baseOptions.toObject });
+
+purchaseItemSchema.virtual('product', {
+  ref: 'Product',
+  localField: 'productId',
+  foreignField: '_id',
+  justOne: true,
+});
+
+const purchaseSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  purchaseNumber: { type: String, required: true, unique: true },
+  supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true },
+  purchaseDate: Date,
+  deliveryDate: Date,
+  supplierName: String,
+  subtotal: { type: Number, default: 0 },
+  gstAmount: { type: Number, default: 0 },
+  totalAmount: Number,
+  status: { type: String, default: 'PENDING' },
+  stockApplied: { type: Boolean, default: false },
+  receivedAt: Date,
+  notes: String,
+  items: [purchaseItemSchema],
+}, baseOptions);
+
+purchaseSchema.virtual('supplier', {
+  ref: 'Supplier',
+  localField: 'supplierId',
+  foreignField: '_id',
+  justOne: true,
+});
+purchaseSchema.index({ adminId: 1, storeId: 1, supplierId: 1, purchaseDate: -1, status: 1 });
+
+const settingsSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true, unique: true, sparse: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  shopName: { type: String, default: 'Agri Fertilizer Shop' },
+  shopAddress: String,
+  shopCity: String,
+  shopState: String,
+  shopPinCode: String,
+  shopPhone: String,
+  shopEmail: String,
+  gstNumber: String,
+  upiId: String,
+  accountHolderName: String,
+  bankName: String,
+  customUpiQrImageUrl: String,
+  invoicePrefix: { type: String, default: 'INV' },
+  receiptPrefix: { type: String, default: 'RCP' },
+  currencySymbol: { type: String, default: 'Rs.' },
+  expiryAlertDays: { type: Number, default: 30 },
+}, baseOptions);
+
+const wishlistItemSchema = new Schema({
+  farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
+}, baseOptions);
+
+wishlistItemSchema.index({ farmerId: 1, storeId: 1, productId: 1 }, { unique: true });
+
+const availabilityRequestSchema = new Schema({
+  farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
+  notifiedAt: Date,
+}, baseOptions);
+
+const notificationSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  type: { type: String, required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  channels: [{ type: String, enum: ['IN_APP', 'SMS', 'EMAIL'] }],
+  readAt: Date,
+}, baseOptions);
+
+const stockAlertSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
+  currentStock: Number,
+  minimumStock: Number,
+  alertType: String,
+  isResolved: { type: Boolean, default: false },
+  resolvedAt: Date,
+}, baseOptions);
+
+const backupSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  fileName: String,
+  backupUrl: String,
+  backupSize: Number,
+  backupType: String,
+  status: { type: String, default: 'COMPLETED' },
+}, baseOptions);
+
+const stockMovementSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
+  type: { type: String, enum: ['PURCHASE_IN', 'SALE_OUT', 'ADJUSTMENT'], required: true },
+  referenceType: { type: String, enum: ['PURCHASE', 'INVOICE', 'ADJUSTMENT'], required: true },
+  referenceId: { type: Schema.Types.ObjectId, required: true, index: true },
+  quantity: { type: Number, required: true },
+  previousStock: { type: Number, required: true },
+  newStock: { type: Number, required: true },
+  note: String,
+}, baseOptions);
+
+stockMovementSchema.index({ adminId: 1, storeId: 1, productId: 1, createdAt: -1 });
+
+export const User = mongoose.model('User', userSchema);
+export const PasswordResetOtp = mongoose.model('PasswordResetOtp', passwordResetOtpSchema);
+export const FarmerAuthOtp = mongoose.model('FarmerAuthOtp', farmerAuthOtpSchema);
+export const Store = mongoose.model('Store', storeSchema);
+export const FarmerStoreLink = mongoose.model('FarmerStoreLink', farmerStoreLinkSchema);
+export const Customer = mongoose.model('Customer', customerSchema);
+export const CustomerPurchasedItem = mongoose.model('CustomerPurchasedItem', customerPurchasedItemSchema);
+export const Product = mongoose.model('Product', productSchema);
+export const Supplier = mongoose.model('Supplier', supplierSchema);
+export const Invoice = mongoose.model('Invoice', invoiceSchema);
+export const Payment = mongoose.model('Payment', paymentSchema);
+export const Purchase = mongoose.model('Purchase', purchaseSchema);
+export const Settings = mongoose.model('Settings', settingsSchema);
+export const WishlistItem = mongoose.model('WishlistItem', wishlistItemSchema);
+export const AvailabilityRequest = mongoose.model('AvailabilityRequest', availabilityRequestSchema);
+export const Notification = mongoose.model('Notification', notificationSchema);
+export const StockAlert = mongoose.model('StockAlert', stockAlertSchema);
+export const Backup = mongoose.model('Backup', backupSchema);
+export const StockMovement = mongoose.model('StockMovement', stockMovementSchema);
