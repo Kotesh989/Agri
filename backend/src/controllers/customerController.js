@@ -365,7 +365,8 @@ export const addCustomerPurchasedItem = async (req, res) => {
     }
 
     const projectedCredit = Number(customer.totalCredit || 0) + balanceDue;
-    if (projectedCredit > Number(customer.creditLimit || 0) && !req.body.overrideCreditLimit) {
+    const creditLimit = Number(customer.creditLimit || 0);
+    if (creditLimit > 0 && projectedCredit > creditLimit && !req.body.overrideCreditLimit) {
       return res.status(400).json({ success: false, message: 'Credit limit reached. Contact Admin.' });
     }
     if (req.body.overrideCreditLimit && req.user.role !== 'ADMIN') {
@@ -412,6 +413,9 @@ export const addCustomerPurchasedItem = async (req, res) => {
       amountPaid: invoicePaidAmount,
       paidAmount: invoicePaidAmount,
       balanceDue: invoiceBalanceDue,
+      dueAmount: invoiceBalanceDue,
+      paymentStatus: invoicePaidAmount >= invoiceTotalAmount ? 'PAID' : invoicePaidAmount > 0 ? 'PARTIAL' : 'PENDING',
+      paidAt: invoicePaidAmount >= invoiceTotalAmount ? new Date() : undefined,
       status: invoicePaidAmount >= invoiceTotalAmount ? 'PAID' : invoicePaidAmount > 0 ? 'PARTIAL' : 'PENDING',
       paymentMethod: req.body.paymentMethod || 'CREDIT',
       notes: payload.notes,
@@ -533,7 +537,8 @@ export const updateCustomerPurchasedItem = async (req, res) => {
 
     const previousProduct = await ownedDocument(Product, req, purchasedItem.productId);
     const nextCredit = Number(customer.totalCredit || 0) - Number(purchasedItem.totalAmount || 0) + payload.totalAmount;
-    if (nextCredit > Number(customer.creditLimit || 0) && !req.body.overrideCreditLimit) {
+    const creditLimit = Number(customer.creditLimit || 0);
+    if (creditLimit > 0 && nextCredit > creditLimit && !req.body.overrideCreditLimit) {
       return res.status(400).json({ success: false, message: 'Credit limit reached. Contact Admin.' });
     }
     if (req.body.overrideCreditLimit && req.user.role !== 'ADMIN') {

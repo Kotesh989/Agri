@@ -1,50 +1,98 @@
+import mongoose from 'mongoose';
 import { Customer, Invoice, Payment } from '../models/index.js';
 import { getOwnerFilter, getRequestAdminId, getRequestStoreId, ownedDocument } from '../utils/ownership.js';
 
 export const recordPayment = async (req, res) => {
   try {
-    const { invoiceId, customerId, amount, paymentMethod, referenceNumber, notes } = req.body;
+    const {
+      invoiceId,
+      customerId,
+      farmerId,
+      amount,
+      amountPaid,
+      paidAmount,
+      paymentMethod,
+      referenceNumber,
+      notes,
+      note,
+    } = req.body;
 
-    if (!customerId || !amount) {
-      return res.status(400).json({ success: false, message: 'Customer and amount are required' });
+    const normalizedInvoiceId = String(invoiceId || '').trim();
+    if (!normalizedInvoiceId) {
+      return res.status(400).json({ success: false, message: 'Invoice ID is required' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(normalizedInvoiceId)) {
+      return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     }
 
-    const customer = await ownedDocument(Customer, req, customerId);
-    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
-    const invoice = invoiceId ? await ownedDocument(Invoice, req, invoiceId) : null;
-    if (invoiceId && !invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    const invoice = await ownedDocument(Invoice, req, normalizedInvoiceId);
+    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
 
-    const paymentAmount = Number(amount);
-    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+    if (customerId && !mongoose.Types.ObjectId.isValid(String(customerId))) {
+      return res.status(400).json({ success: false, message: 'Invalid customer ID' });
+    }
+    if (farmerId && !mongoose.Types.ObjectId.isValid(String(farmerId))) {
+      return res.status(400).json({ success: false, message: 'Invalid farmer ID' });
+    }
+    if (customerId && String(invoice.customerId) !== String(customerId)) {
+      return res.status(400).json({ success: false, message: 'Customer does not match invoice' });
+    }
+    if (farmerId && invoice.farmerUserId && String(invoice.farmerUserId) !== String(farmerId)) {
+      return res.status(400).json({ success: false, message: 'Farmer does not match invoice' });
+    }
+
+    const customer = await ownedDocument(Customer, req, invoice.customerId);
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+
+    const totalAmount = Number(invoice.totalAmount || 0);
+    const currentPaid = Number(invoice.paidAmount ?? invoice.amountPaid ?? 0);
+    const outstanding = Number((Number(invoice.balanceDue ?? invoice.dueAmount ?? (totalAmount - currentPaid))).toFixed(2));
+    if (invoice.status === 'PAID' || invoice.paymentStatus === 'PAID' || outstanding <= 0) {
+      return res.status(400).json({ success: false, message: 'Invoice already paid' });
+    }
+
+    const requestedAmount = Number(amountPaid ?? paidAmount ?? amount);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero' });
     }
-
-    if (invoice) {
-      const outstanding = Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0);
-      if (outstanding <= 0) {
-        return res.status(400).json({ success: false, message: 'Invoice is already fully paid' });
-      }
-      if (paymentAmount > outstanding) {
-        return res.status(400).json({ success: false, message: 'Payment exceeds remaining invoice balance' });
-      }
+    if (requestedAmount < outstanding) {
+      return res.status(400).json({ success: false, message: 'Payment amount must clear the full due amount' });
+    }
+    if (!paymentMethod) {
+      return res.status(400).json({ success: false, message: 'Payment method is required' });
     }
 
-    const payment = await Payment.create({ adminId: getRequestAdminId(req), storeId: getRequestStoreId(req), invoiceId, customerId, amount: paymentAmount, paymentMethod, referenceNumber, notes });
+    const paidAt = new Date();
+    const payment = await Payment.create({
+      adminId: getRequestAdminId(req),
+      storeId: getRequestStoreId(req),
+      invoiceId: invoice._id,
+      customerId: customer._id,
+      amount: outstanding,
+      paymentMethod,
+      referenceNumber,
+      notes: note || notes || `Cleared due for invoice ${invoice.invoiceNumber}`,
+      paymentDate: paidAt,
+    });
 
-    customer.totalCredit = Number(customer.totalCredit || 0) - paymentAmount;
+    customer.totalCredit = Math.max(Number(customer.totalCredit || 0) - outstanding, 0);
     await customer.save();
 
-    if (invoice) {
-      invoice.paidAmount = Number(invoice.paidAmount || 0) + paymentAmount;
-      invoice.balanceDue = Number((Number(invoice.totalAmount || 0) - invoice.paidAmount).toFixed(2));
-      invoice.status = invoice.paidAmount >= invoice.totalAmount ? 'PAID' : 'PARTIAL';
-      await invoice.save();
-    }
+    invoice.amountPaid = totalAmount;
+    invoice.paidAmount = totalAmount;
+    invoice.balanceDue = 0;
+    invoice.dueAmount = 0;
+    invoice.paymentStatus = 'PAID';
+    invoice.status = 'PAID';
+    invoice.paymentMethod = paymentMethod;
+    invoice.paidAt = paidAt;
+    await invoice.save();
 
-    res.status(201).json({ success: true, message: 'Payment recorded successfully', data: payment });
+    const populatedPayment = await Payment.findById(payment._id).populate('customer').populate('invoice');
+    res.status(201).json({ success: true, message: 'Invoice marked as paid successfully', data: populatedPayment });
   } catch (error) {
     console.error('Record payment error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
 

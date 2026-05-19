@@ -33,6 +33,7 @@ export const PaymentsPage = () => {
   useEffect(() => {
     fetchPayments();
     fetchCustomers();
+    fetchInvoices();
   }, [search]);
 
   const fetchPayments = async () => {
@@ -56,11 +57,42 @@ export const PaymentsPage = () => {
     }
   };
 
+  const fetchInvoices = async () => {
+    try {
+      const response = await api.get('/invoices');
+      setInvoices(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+    }
+  };
+
+  const getInvoiceCustomerId = (invoice) => {
+    if (!invoice) return '';
+    if (typeof invoice.customerId === 'string') return invoice.customerId;
+    return invoice.customerId?.id || invoice.customer?._id || invoice.customer?.id || '';
+  };
+
+  const getInvoiceDueAmount = (invoice) => {
+    const total = Number(invoice?.totalAmount || 0);
+    const paid = Number(invoice?.paidAmount ?? invoice?.amountPaid ?? 0);
+    return Number((Number(invoice?.balanceDue ?? invoice?.dueAmount ?? (total - paid))).toFixed(2));
+  };
+
+  const unpaidInvoices = invoices.filter((invoice) => getInvoiceDueAmount(invoice) > 0 && invoice.status !== 'PAID' && invoice.paymentStatus !== 'PAID');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      await api.post('/payments', formData);
+      const payload = {
+        invoiceId: formData.invoiceId,
+        customerId: formData.customerId,
+        amountPaid: Number(formData.amount || 0),
+        paymentMethod: formData.paymentMethod,
+        referenceNumber: formData.referenceNumber || undefined,
+        note: formData.notes || undefined,
+      };
+      await api.post('/payments', payload);
       addNotification('Payment recorded successfully', 'success');
       setShowModal(false);
       setFormData({
@@ -72,6 +104,8 @@ export const PaymentsPage = () => {
         notes: '',
       });
       fetchPayments();
+      fetchInvoices();
+      fetchCustomers();
     } catch (error) {
       showError(error, 'Error recording payment');
     }
@@ -152,7 +186,7 @@ export const PaymentsPage = () => {
                 <label className="block text-sm font-medium mb-1">Customer *</label>
                 <select
                   value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value, invoiceId: '', amount: '' })}
                   className="input"
                   required
                 >
@@ -166,6 +200,33 @@ export const PaymentsPage = () => {
               </div>
 
               <div>
+                <label className="block text-sm font-medium mb-1">Unpaid Invoice *</label>
+                <select
+                  value={formData.invoiceId}
+                  onChange={(e) => {
+                    const invoice = unpaidInvoices.find((item) => item.id === e.target.value);
+                    setFormData({
+                      ...formData,
+                      invoiceId: e.target.value,
+                      customerId: invoice ? getInvoiceCustomerId(invoice) : formData.customerId,
+                      amount: invoice ? String(getInvoiceDueAmount(invoice)) : '',
+                    });
+                  }}
+                  className="input"
+                  required
+                >
+                  <option value="">Select unpaid invoice</option>
+                  {unpaidInvoices
+                    .filter((invoice) => !formData.customerId || getInvoiceCustomerId(invoice) === formData.customerId)
+                    .map((invoice) => (
+                      <option key={invoice.id} value={invoice.id}>
+                        {invoice.invoiceNumber} - {invoice.customerSnapshot?.name || invoice.customer?.name || 'Customer'} - Due {formatCurrency(getInvoiceDueAmount(invoice))}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium mb-1">Amount *</label>
                 <input
                   type="number"
@@ -173,8 +234,10 @@ export const PaymentsPage = () => {
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   className="input"
+                  min="0.01"
                   required
                 />
+                <p className="mt-1 text-xs text-slate-500">Payment must clear the selected invoice due amount.</p>
               </div>
 
               <div>

@@ -33,10 +33,17 @@ export const createInvoice = async (req, res) => {
     }
 
     if (!customer.farmerUserId) {
-      let farmer = await User.findOne({ role: 'FARMER', mobileNumber: customer.mobileNumber });
+      const normalizedCustomerEmail = customer.email ? String(customer.email).trim().toLowerCase() : undefined;
+      let farmer = await User.findOne({
+        role: 'FARMER',
+        $or: [
+          { mobileNumber: customer.mobileNumber },
+          ...(normalizedCustomerEmail ? [{ email: normalizedCustomerEmail }] : []),
+        ],
+      });
       if (!farmer) {
         farmer = await User.create({
-          email: customer.email || undefined,
+          email: normalizedCustomerEmail,
           mobileNumber: customer.mobileNumber,
           password: await hashPassword(crypto.randomBytes(24).toString('hex')),
           name: customer.name,
@@ -134,7 +141,8 @@ export const createInvoice = async (req, res) => {
 
     if (balanceDue > 0) {
       const projectedCredit = Number(customer.totalCredit || 0) + balanceDue;
-      if (projectedCredit > Number(customer.creditLimit || 0) && !req.body.overrideCreditLimit) {
+      const creditLimit = Number(customer.creditLimit || 0);
+      if (creditLimit > 0 && projectedCredit > creditLimit && !req.body.overrideCreditLimit) {
         return res.status(400).json({ success: false, message: 'Credit limit reached. Contact Admin.' });
       }
       if (req.body.overrideCreditLimit && req.user.role !== 'ADMIN') {
@@ -172,6 +180,9 @@ export const createInvoice = async (req, res) => {
       amountPaid: paidAmount,
       paidAmount,
       balanceDue,
+      dueAmount: balanceDue,
+      paymentStatus: paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'PENDING',
+      paidAt: paidAmount >= totalAmount ? new Date() : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       status: paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'PENDING',
       paymentMethod,

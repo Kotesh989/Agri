@@ -7,7 +7,7 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { showError } from '../utils/notificationService';
 import api from '../utils/api';
 import { formatDate, formatCurrency, getStatusColor } from '../utils/helpers';
-import { Plus, Trash2, Search, Download, Printer, Share2 } from 'lucide-react';
+import { CheckCircle2, Download, Plus, Printer, Search, Share2, Trash2 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 export const InvoicesPage = () => {
@@ -225,6 +225,51 @@ export const InvoicesPage = () => {
     }
   };
 
+  const getInvoiceCustomerId = (invoice) => {
+    if (!invoice) return '';
+    if (typeof invoice.customerId === 'string') return invoice.customerId;
+    return invoice.customerId?.id || invoice.customer?._id || invoice.customer?.id || '';
+  };
+
+  const getInvoiceDueAmount = (invoice) => {
+    const total = Number(invoice?.totalAmount || 0);
+    const paid = Number(invoice?.paidAmount ?? invoice?.amountPaid ?? 0);
+    return Number((Number(invoice?.balanceDue ?? invoice?.dueAmount ?? (total - paid))).toFixed(2));
+  };
+
+  const handleClearDue = async (invoice) => {
+    const dueAmount = getInvoiceDueAmount(invoice);
+    if (dueAmount <= 0 || invoice.status === 'PAID' || invoice.paymentStatus === 'PAID') {
+      addNotification('Invoice already paid', 'info');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Mark invoice as paid',
+      description: `Clear due amount ${formatCurrency(dueAmount)} for invoice ${invoice.invoiceNumber}?`,
+      confirmText: 'Mark as Paid',
+      cancelText: 'Cancel',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await api.post('/payments', {
+        invoiceId: invoice.id,
+        customerId: getInvoiceCustomerId(invoice),
+        farmerId: invoice.farmerUserId || undefined,
+        amountPaid: dueAmount,
+        paymentMethod: 'CASH',
+        note: `Clear due for invoice ${invoice.invoiceNumber}`,
+      });
+      addNotification('Invoice marked as paid successfully', 'success');
+      fetchInvoices();
+      fetchCustomers();
+    } catch (error) {
+      showError(error, 'Error clearing invoice due');
+    }
+  };
+
   const openPdf = (url) => {
     if (!url) return;
     window.open(url, '_blank');
@@ -355,6 +400,12 @@ export const InvoicesPage = () => {
                       <span className={`badge ${getStatusColor(invoice.status)}`}>{invoice.status}</span>
                     </td>
                     <td className="flex items-center gap-2">
+                      {getInvoiceDueAmount(invoice) > 0 && invoice.status !== 'PAID' && (
+                        <button type="button" onClick={() => handleClearDue(invoice)} className="btn btn-primary btn-sm" title="Clear due and mark invoice paid">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="hidden xl:inline">Mark Paid</span>
+                        </button>
+                      )}
                       {invoice.pdfUrl && (
                         <button type="button" onClick={() => openPdf(invoice.pdfUrl)} className="btn btn-secondary btn-sm" title="Download PDF">
                           <Download className="w-4 h-4" />
@@ -537,6 +588,13 @@ export const InvoicesPage = () => {
                     onChange={(e) => setFormData({ ...formData, amountPaid: Number(e.target.value) })}
                     className="input"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, amountPaid: 0, paymentMethod: 'CREDIT' })}
+                    className="btn btn-secondary btn-sm mt-2 w-full justify-center"
+                  >
+                    Create as Unpaid
+                  </button>
                 </div>
               </div>
 
