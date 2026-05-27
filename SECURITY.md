@@ -500,3 +500,6 @@ await auditLog.create({
 ---
 
 **Security is everyone's responsibility!** 🔒
+# Documentation Status
+
+This security document contains some older Prisma/PostgreSQL examples. The active backend uses MongoDB/Mongoose; current environment guidance is in `ENVIRONMENT.md`.

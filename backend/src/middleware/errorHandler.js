@@ -6,7 +6,7 @@ export const errorHandler = (err, req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'Validation error',
-      errors: err.errors,
+      errors: Object.values(err.errors || {}).map((error) => error.message || String(error)),
     });
   }
 
@@ -14,6 +14,7 @@ export const errorHandler = (err, req, res, next) => {
     return res.status(401).json({
       success: false,
       message: 'Unauthorized',
+      errors: [],
     });
   }
 
@@ -21,12 +22,14 @@ export const errorHandler = (err, req, res, next) => {
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
+      errors: err.errors || [],
     });
   }
 
   res.status(500).json({
     success: false,
     message: 'Internal server error',
+    errors: [],
   });
 };
 
@@ -35,5 +38,6 @@ export const notFoundHandler = (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
+    errors: [],
   });
 };

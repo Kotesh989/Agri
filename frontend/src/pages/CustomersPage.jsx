@@ -7,7 +7,7 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { showError } from '../utils/notificationService';
 import api from '../utils/api';
 import { Plus, Edit2, Trash2, Search, Eye, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../utils/helpers';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -92,6 +92,7 @@ export const CustomersPage = () => {
   const { confirm } = useConfirm();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchCustomers();
@@ -121,6 +122,15 @@ export const CustomersPage = () => {
         .some((value) => value.toLowerCase().includes(term))
     );
   }, [products, productSearch]);
+
+  const visibleCustomers = useMemo(() => {
+    if (searchParams.get('filter') !== 'credit-pending') return customers;
+    return customers.filter((customer) =>
+      Number(customer.totalCredit || 0) > 0 ||
+      Number(customer.currentCreditUsed || 0) > 0 ||
+      Number(customer.balanceDue || 0) > 0
+    );
+  }, [customers, searchParams]);
 
   const fetchCustomers = async () => {
     try {
@@ -534,9 +544,16 @@ export const CustomersPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((customer) => (
+                  {visibleCustomers.map((customer) => (
                     <Fragment key={customer.id}>
-                      <tr className={selectedCustomer?.id === customer.id ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}>
+                      <tr
+                        tabIndex={0}
+                        onClick={() => handleOpenCustomerModal(customer)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') handleOpenCustomerModal(customer);
+                        }}
+                        className={`cursor-pointer transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:hover:bg-gray-800 ${selectedCustomer?.id === customer.id ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}
+                      >
                         <td>{customer.name}</td>
                         <td>{customer.mobileNumber}</td>
                         <td>{customer.email || '-'}</td>
@@ -544,13 +561,13 @@ export const CustomersPage = () => {
                         <td>{formatCurrency(customer.creditLimit)}</td>
                         <td>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => selectedCustomer?.id === customer.id ? setSelectedCustomer(null) : fetchCustomerDetails(customer)} className="btn btn-secondary btn-sm" title="View customer details">
+                            <button onClick={(event) => { event.stopPropagation(); selectedCustomer?.id === customer.id ? setSelectedCustomer(null) : fetchCustomerDetails(customer); }} className="btn btn-secondary btn-sm" title="View customer details">
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button onClick={() => handleOpenCustomerModal(customer)} className="btn btn-secondary btn-sm" title="Edit customer">
+                            <button onClick={(event) => { event.stopPropagation(); handleOpenCustomerModal(customer); }} className="btn btn-secondary btn-sm" title="Edit customer">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => handleDeleteCustomer(customer.id)} className="btn btn-danger btn-sm" title="Delete customer">
+                            <button onClick={(event) => { event.stopPropagation(); handleDeleteCustomer(customer.id); }} className="btn btn-danger btn-sm" title="Delete customer">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>

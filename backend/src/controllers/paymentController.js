@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { Customer, Invoice, Payment } from '../models/index.js';
 import { getOwnerFilter, getRequestAdminId, getRequestStoreId, ownedDocument } from '../utils/ownership.js';
+import { validationError as sendValidationError } from '../utils/http.js';
+import { writeAuditLog } from '../utils/audit.js';
 
 export const recordPayment = async (req, res) => {
   try {
@@ -53,13 +55,13 @@ export const recordPayment = async (req, res) => {
 
     const requestedAmount = Number(amountPaid ?? paidAmount ?? amount);
     if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-      return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero' });
+      return sendValidationError(res, 'Payment amount must be greater than zero');
     }
-    if (requestedAmount < outstanding) {
-      return res.status(400).json({ success: false, message: 'Payment amount must clear the full due amount' });
+    if (requestedAmount > outstanding) {
+      return sendValidationError(res, 'Payment amount cannot exceed invoice balance');
     }
     if (!paymentMethod) {
-      return res.status(400).json({ success: false, message: 'Payment method is required' });
+      return sendValidationError(res, 'Payment method is required');
     }
 
     const paidAt = new Date();
@@ -68,28 +70,37 @@ export const recordPayment = async (req, res) => {
       storeId: getRequestStoreId(req),
       invoiceId: invoice._id,
       customerId: customer._id,
-      amount: outstanding,
+      amount: requestedAmount,
       paymentMethod,
       referenceNumber,
       notes: note || notes || `Cleared due for invoice ${invoice.invoiceNumber}`,
       paymentDate: paidAt,
     });
 
-    customer.totalCredit = Math.max(Number(customer.totalCredit || 0) - outstanding, 0);
+    customer.totalCredit = Math.max(Number(customer.totalCredit || 0) - requestedAmount, 0);
     await customer.save();
 
-    invoice.amountPaid = totalAmount;
-    invoice.paidAmount = totalAmount;
-    invoice.balanceDue = 0;
-    invoice.dueAmount = 0;
-    invoice.paymentStatus = 'PAID';
-    invoice.status = 'PAID';
+    const nextPaid = Number((currentPaid + requestedAmount).toFixed(2));
+    const nextBalance = Math.max(Number((totalAmount - nextPaid).toFixed(2)), 0);
+    invoice.amountPaid = nextPaid;
+    invoice.paidAmount = nextPaid;
+    invoice.balanceDue = nextBalance;
+    invoice.dueAmount = nextBalance;
+    invoice.paymentStatus = nextBalance <= 0 ? 'PAID' : 'PARTIAL';
+    invoice.status = invoice.paymentStatus;
     invoice.paymentMethod = paymentMethod;
-    invoice.paidAt = paidAt;
+    invoice.paidAt = nextBalance <= 0 ? paidAt : invoice.paidAt;
     await invoice.save();
+    await writeAuditLog(req, 'PAYMENT_UPDATED', 'Payment', payment._id, {
+      invoiceId: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: requestedAmount,
+      previousBalance: outstanding,
+      newBalance: nextBalance,
+    });
 
     const populatedPayment = await Payment.findById(payment._id).populate('customer').populate('invoice');
-    res.status(201).json({ success: true, message: 'Invoice marked as paid successfully', data: populatedPayment });
+    res.status(201).json({ success: true, message: nextBalance <= 0 ? 'Invoice marked as paid successfully' : 'Payment recorded successfully', data: populatedPayment });
   } catch (error) {
     console.error('Record payment error:', error);
     res.status(500).json({ success: false, message: error.message || 'Internal server error' });
@@ -140,7 +151,7 @@ export const getCustomerCredit = async (req, res) => {
         creditStatus: Number(customer.totalCredit || 0) >= Number(customer.creditLimit || 0) && Number(customer.creditLimit || 0) > 0 ? 'BLOCKED' : 'AVAILABLE',
         totalDue,
         payments,
-        invoicesPending: invoices.filter((inv) => inv.status === 'PENDING' || inv.status === 'PARTIAL').length,
+        invoicesPending: invoices.filter((inv) => ['UNPAID', 'PENDING', 'PARTIAL'].includes(inv.status)).length,
       },
     });
   } catch (error) {

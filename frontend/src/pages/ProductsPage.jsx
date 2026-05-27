@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Edit2, Plus, Search, Trash2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { Navbar } from '../components/Navbar';
@@ -37,6 +38,7 @@ export const ProductsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState(emptyProductForm);
+  const [searchParams] = useSearchParams();
 
   const { addNotification } = useNotificationContext();
   const { t } = useTranslation();
@@ -197,6 +199,8 @@ export const ProductsPage = () => {
                 <option value="ALL">All categories</option>
                 <option value="FERTILIZER">Fertilizer</option>
                 <option value="PESTICIDE">Pesticide</option>
+                <option value="SEEDS">Seeds</option>
+                <option value="OTHER">Other</option>
               </select>
             </div>
           </div>
@@ -217,7 +221,17 @@ export const ProductsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => {
+                {products
+                  .filter((product) => {
+                    const filter = searchParams.get('filter');
+                    const stockQuantity = Number(product.stockQuantity ?? product.currentStock ?? 0);
+                    const minimumStock = Number(product.lowStockAlert ?? product.minimumStock ?? 0);
+                    const expiryDate = product.expiryDate ? new Date(product.expiryDate) : null;
+                    if (filter === 'low-stock') return stockQuantity <= minimumStock;
+                    if (filter === 'expiring') return expiryDate && expiryDate <= new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+                    return true;
+                  })
+                  .map((product) => {
                   const stockQuantity = Number(product.stockQuantity ?? product.currentStock ?? 0);
                   const minimumStock = Number(product.lowStockAlert ?? product.minimumStock ?? 0);
                   const isLowStock = stockQuantity <= minimumStock;
@@ -285,6 +299,8 @@ export const ProductsPage = () => {
                   >
                     <option value="FERTILIZER">Fertilizer</option>
                     <option value="PESTICIDE">Pesticide</option>
+                    <option value="SEEDS">Seeds</option>
+                    <option value="OTHER">Other</option>
                   </select>
                 </div>
               </div>

@@ -387,3 +387,6 @@ After going live, monitor:
 **Ready to launch? Go live! 🚀**
 
 For questions, see FAQ.md or TROUBLESHOOTING.md
+# Deprecated Checklist
+
+This checklist reflects the older Prisma/PostgreSQL deployment path. For the active MongoDB/Mongoose deployment, use `DEPLOYMENT_GUIDE.md` and the root `render.yaml`.

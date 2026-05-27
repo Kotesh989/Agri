@@ -147,9 +147,10 @@ export const generateInvoicePDF = async (invoice, items, customer, settings) => 
         try {
           doc.image(qrBuffer, qrX, qrY, { width: 130 });
           doc.font('Helvetica-Bold').fontSize(12).text('Scan to Pay', qrX, qrY + 140, { width: 130, align: 'center' });
-          doc.font('Helvetica').fontSize(9).text(settings.accountHolderName || '', qrX, qrY + 160, { width: 130, align: 'center' });
-          doc.text(settings.bankName || '', qrX, qrY + 175, { width: 130, align: 'center' });
-          termsBaseY = qrY + 190;
+          doc.font('Helvetica').fontSize(9).text(settings.upiId || '', qrX, qrY + 160, { width: 130, align: 'center' });
+          doc.text(settings.accountHolderName || '', qrX, qrY + 175, { width: 130, align: 'center' });
+          doc.text(settings.bankName || '', qrX, qrY + 190, { width: 130, align: 'center' });
+          termsBaseY = qrY + 210;
         } catch (imageError) {
           console.warn('Unable to draw QR image on PDF:', imageError);
         }

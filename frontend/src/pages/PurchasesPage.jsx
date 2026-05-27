@@ -251,9 +251,9 @@ export const PurchasesPage = () => {
           <Modal isOpen={showModal} title={editingPurchase ? 'Edit Purchase' : 'New Purchase'} onClose={() => setShowModal(false)} size="xl">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Supplier *</label>
+                <label className="block text-sm font-medium mb-1">Supplier / Wholesaler *</label>
                 <select value={formData.supplierId} onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })} className="input" required>
-                  <option value="">Select Supplier</option>
+                  <option value="">Select supplier / wholesaler</option>
                   {suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
                 </select>
               </div>
@@ -261,28 +261,47 @@ export const PurchasesPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2">
                 {formData.items.map((item, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-2 mb-2 p-3 bg-gray-100 rounded">
-                    <select value={item.productId} onChange={(e) => {
-                      const selected = products.find((product) => product.id === e.target.value);
-                      const nextItems = [...formData.items];
-                      nextItems[index] = {
-                        ...nextItems[index],
-                        productId: e.target.value,
-                        unitPrice: Number(selected?.purchasePrice ?? selected?.pricePerUnit ?? selected?.sellingPrice ?? 0),
-                      };
-                      setFormData({ ...formData, items: nextItems });
-                    }} className="input" required>
-                      <option value="">Select Product</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>{product.name}</option>
-                      ))}
-                    </select>
-                    <input type="number" value={item.quantity} min="0" step="1" className="input" placeholder="Qty" onChange={(e) => handleItemChange(index, { quantity: Number(e.target.value) })} required />
-                    <input type="number" value={item.unitPrice} min="0" step="0.01" className="input" placeholder="Unit price" onChange={(e) => handleItemChange(index, { unitPrice: Number(e.target.value) })} required />
-                    <input type="number" value={item.gstRate} min="0" step="0.01" className="input" placeholder="GST %" onChange={(e) => handleItemChange(index, { gstRate: Number(e.target.value) })} />
-                    <input type="text" value={item.batchNumber} className="input" placeholder="Batch no" onChange={(e) => handleItemChange(index, { batchNumber: e.target.value })} />
-                    <input type="date" value={item.expiryDate} className="input" onChange={(e) => handleItemChange(index, { expiryDate: e.target.value })} />
+                    <div>
+                      <label className="form-label">Product Purchased</label>
+                      <select value={item.productId} onChange={(e) => {
+                        const selected = products.find((product) => product.id === e.target.value);
+                        const nextItems = [...formData.items];
+                        nextItems[index] = {
+                          ...nextItems[index],
+                          productId: e.target.value,
+                          unitPrice: Number(selected?.purchasePrice ?? selected?.pricePerUnit ?? selected?.sellingPrice ?? 0),
+                        };
+                        setFormData({ ...formData, items: nextItems });
+                      }} className="input" required>
+                        <option value="">Select product purchased</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>{product.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Quantity Purchased</label>
+                      <input type="number" value={item.quantity} min="0" step="1" className="input" placeholder="Quantity purchased" onChange={(e) => handleItemChange(index, { quantity: Number(e.target.value) })} required />
+                    </div>
+                    <div>
+                      <label className="form-label">Purchase Price per Unit</label>
+                      <input type="number" value={item.unitPrice} min="0" step="0.01" className="input" placeholder="Purchase price per unit" onChange={(e) => handleItemChange(index, { unitPrice: Number(e.target.value) })} required />
+                    </div>
+                    <div>
+                      <label className="form-label">GST Rate</label>
+                      <input type="number" value={item.gstRate} min="0" step="0.01" className="input" placeholder="GST rate" onChange={(e) => handleItemChange(index, { gstRate: Number(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className="form-label">Batch Number</label>
+                      <input type="text" value={item.batchNumber} className="input" placeholder="Batch number" onChange={(e) => handleItemChange(index, { batchNumber: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="form-label">Expiry Date</label>
+                      <input type="date" value={item.expiryDate} className="input" onChange={(e) => handleItemChange(index, { expiryDate: e.target.value })} />
+                    </div>
                   </div>
                 ))}
+                <p className="text-xs text-slate-500">Batch and expiry help track fertilizer/pesticide/seed validity.</p>
               </div>
 
               <button type="button" onClick={handleAddItem} className="btn btn-secondary btn-sm">Add item</button>
@@ -293,11 +312,12 @@ export const PurchasesPage = () => {
                   <input type="date" value={formData.purchaseDate} onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })} className="input" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <label className="block text-sm font-medium mb-1">Purchase Status</label>
                   <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="input">
                     <option value="PENDING">Pending</option>
                     <option value="RECEIVED">Received</option>
                   </select>
+                  <p className="mt-1 text-xs text-slate-500">If status is Received, stock will be added to inventory.</p>
                 </div>
               </div>
 

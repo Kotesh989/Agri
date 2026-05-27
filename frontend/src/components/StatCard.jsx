@@ -1,4 +1,4 @@
-export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend }) => {
+export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend, onClick }) => {
   const colorClasses = {
     emerald: 'border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-50',
     blue: 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/35 dark:text-sky-50',
@@ -15,8 +15,22 @@ export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend })
     purple: 'bg-violet-600 text-white',
   };
 
+  const interactiveProps = onClick
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (event) => {
+          if (event.key === 'Enter') onClick();
+        },
+      }
+    : {};
+
   return (
-    <div className={`group rounded-lg border p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md-soft ${colorClasses[color] || colorClasses.emerald}`}>
+    <div
+      {...interactiveProps}
+      className={`group rounded-lg border p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md-soft ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900' : ''} ${colorClasses[color] || colorClasses.emerald}`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <p className="text-xs font-semibold uppercase text-current/70">{title}</p>
@@ -27,6 +41,7 @@ export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend })
               {trend}
             </p>
           )}
+          {onClick && <p className="mt-3 text-xs font-semibold text-current/75">View details</p>}
         </div>
         {Icon && (
           <div className={`rounded-lg p-3 ${iconBgClasses[color]}`}>

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Menu, LogOut, Sun, Moon, BarChart3, User, Languages, ChevronDown } from 'lucide-react';
+import { Menu, LogOut, Sun, Moon, BarChart3, User, Languages } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useConfirm } from './ConfirmProvider';
@@ -32,7 +32,7 @@ export const Navbar = () => {
   const { t, i18n } = useTranslation();
 
   const { confirm } = useConfirm();
-  const { showSuccess, showInfo } = useNotificationContext();
+  const { showInfo } = useNotificationContext();
 
   const handleLogout = async () => {
     const confirmed = await confirm({

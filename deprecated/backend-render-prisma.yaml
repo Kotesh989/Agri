@@ -1,3 +1,5 @@
+## DEPRECATED: kept for reference only.
+## The active Render blueprint is the root render.yaml and uses MongoDB/Mongoose.
 services:
   - type: web
     name: agri-backend

@@ -281,3 +281,6 @@ Your contributions help make this project better for everyone. Thank you for hel
 ---
 
 **Happy contributing!** 🌾
+# Documentation Status
+
+This file contains older project-structure examples that may mention Prisma. For active setup and deployment, use `README.md`, `QUICK_START.md`, and `DEPLOYMENT_GUIDE.md`.

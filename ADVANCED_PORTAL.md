@@ -64,3 +64,6 @@ SMTP_FROM=
 - Replace the legacy Kannada locale file with reviewed UTF-8 translations.
 - Add background jobs for reminder scheduling, retries, and provider webhooks.
 - Add automated tests around OTP edge cases, store isolation, and notification fan-out.
+# Deprecated Reference
+
+This note describes historical multi-store/Prisma planning. The active backend uses MongoDB/Mongoose and the deprecated Prisma files now live under `deprecated/prisma/`.

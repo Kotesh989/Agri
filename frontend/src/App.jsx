@@ -22,6 +22,7 @@ import { FarmerCatalogPage } from './pages/FarmerCatalogPage';
 import { FarmerShopsPage } from './pages/FarmerShopsPage';
 import { FarmerShopProductsPage } from './pages/FarmerShopProductsPage';
 import { FarmerPurchaseHistoryPage } from './pages/FarmerPurchaseHistoryPage';
+import { FarmerInvoiceView } from './pages/FarmerInvoiceView';
 import { RegisterPage } from './pages/RegisterPage';
 import { PasswordResetPage } from './pages/PasswordResetPage';
 
@@ -152,6 +153,14 @@ function App() {
                 element={
                   <ProtectedRoute roles={['FARMER']}>
                     <FarmerShopProductsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/farmer/invoices/:invoiceId"
+                element={
+                  <ProtectedRoute roles={['FARMER']}>
+                    <FarmerInvoiceView />
                   </ProtectedRoute>
                 }
               />

@@ -372,3 +372,6 @@ We value your feedback! Please:
 **Thank you for using Agri Fertilizer Shop Management System!** 🌾
 
 For the latest updates and information, visit the GitHub repository.
+# Historical Changelog
+
+Older entries mention the previous Prisma/PostgreSQL architecture. The active backend now uses MongoDB/Mongoose.

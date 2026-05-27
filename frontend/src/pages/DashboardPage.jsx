@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { StatCard } from '../components/StatCard';
 import { AlertTriangle, BarChart3, DollarSign, FlaskConical, Package, TrendingUp, Users, WalletCards } from 'lucide-react';
@@ -27,6 +28,7 @@ export const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchStats();
@@ -65,17 +67,17 @@ export const DashboardPage = () => {
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <StatCard title={t('dashboard.todaySales')} value={money(stats?.todaySales)} icon={DollarSign} color="emerald" />
-            <StatCard title={t('dashboard.monthlySales')} value={money(stats?.monthlySales)} icon={TrendingUp} color="blue" />
-            <StatCard title={t('dashboard.totalCustomers')} value={stats?.totalCustomers || 0} icon={Users} color="yellow" />
-            <StatCard title={t('dashboard.totalInventory')} value={stats?.totalInventory || 0} icon={Package} color="blue" />
-            <StatCard title={t('dashboard.lowStock')} value={stats?.lowStockProducts || 0} icon={AlertTriangle} color="yellow" />
-            <StatCard title={t('dashboard.creditPending')} value={stats?.creditPendingCustomers || 0} icon={BarChart3} color="red" />
-            <StatCard title="Pending Payments" value={stats?.pendingInvoices || 0} icon={WalletCards} color="red" />
-            <StatCard title="Expiring Products" value={stats?.expiringProducts || 0} icon={AlertTriangle} color="yellow" />
-            <StatCard title="Total Profit" value={money(stats?.totalProfit)} icon={TrendingUp} color="emerald" />
-            <StatCard title={t('dashboard.fertilizerSales')} value={fertilizerSales} icon={Package} color="emerald" />
-            <StatCard title={t('dashboard.pesticideSales')} value={pesticideSales} icon={FlaskConical} color="yellow" />
+            <StatCard title={t('dashboard.todaySales')} value={money(stats?.todaySales)} icon={DollarSign} color="emerald" onClick={() => navigate('/invoices')} />
+            <StatCard title={t('dashboard.monthlySales')} value={money(stats?.monthlySales)} icon={TrendingUp} color="blue" onClick={() => navigate('/invoices')} />
+            <StatCard title={t('dashboard.totalCustomers')} value={stats?.totalCustomers || 0} icon={Users} color="yellow" onClick={() => navigate('/customers')} />
+            <StatCard title={t('dashboard.totalInventory')} value={stats?.totalInventory || 0} icon={Package} color="blue" onClick={() => navigate('/products')} />
+            <StatCard title={t('dashboard.lowStock')} value={stats?.lowStockProducts || 0} icon={AlertTriangle} color="yellow" onClick={() => navigate('/products?filter=low-stock')} />
+            <StatCard title={t('dashboard.creditPending')} value={stats?.creditPendingCustomers || 0} icon={BarChart3} color="red" onClick={() => navigate('/customers?filter=credit-pending')} />
+            <StatCard title="Pending Payments" value={stats?.pendingInvoices || 0} icon={WalletCards} color="red" onClick={() => navigate('/payments?filter=pending')} />
+            <StatCard title="Expiring Products" value={stats?.expiringProducts || 0} icon={AlertTriangle} color="yellow" onClick={() => navigate('/products?filter=expiring')} />
+            <StatCard title="Total Profit" value={money(stats?.totalProfit)} icon={TrendingUp} color="emerald" onClick={() => navigate('/reports')} />
+            <StatCard title={t('dashboard.fertilizerSales')} value={fertilizerSales} icon={Package} color="emerald" onClick={() => navigate('/invoices')} />
+            <StatCard title={t('dashboard.pesticideSales')} value={pesticideSales} icon={FlaskConical} color="yellow" onClick={() => navigate('/invoices')} />
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 import { Sidebar } from '../components/Sidebar';
 import { Modal } from '../components/Modal';
@@ -29,6 +30,7 @@ export const PaymentsPage = () => {
   const { addNotification } = useNotificationContext();
   const { confirm } = useConfirm();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchPayments();
@@ -79,6 +81,7 @@ export const PaymentsPage = () => {
   };
 
   const unpaidInvoices = invoices.filter((invoice) => getInvoiceDueAmount(invoice) > 0 && invoice.status !== 'PAID' && invoice.paymentStatus !== 'PAID');
+  const showPending = searchParams.get('filter') === 'pending';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -167,15 +170,25 @@ export const PaymentsPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>{payment.customer?.name}</td>
-                    <td>{formatCurrency(payment.amount)}</td>
-                    <td>{payment.paymentMethod}</td>
-                    <td>{formatDate(payment.paymentDate)}</td>
-                    <td>{payment.invoice?.invoiceNumber || '-'}</td>
-                  </tr>
-                ))}
+                {showPending
+                  ? unpaidInvoices.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td>{invoice.customer?.name || invoice.customerSnapshot?.name || '-'}</td>
+                      <td>{formatCurrency(getInvoiceDueAmount(invoice))}</td>
+                      <td>{invoice.paymentMethod || '-'}</td>
+                      <td>{formatDate(invoice.invoiceDate)}</td>
+                      <td>{invoice.invoiceNumber || '-'}</td>
+                    </tr>
+                  ))
+                  : payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td>{payment.customer?.name}</td>
+                      <td>{formatCurrency(payment.amount)}</td>
+                      <td>{payment.paymentMethod}</td>
+                      <td>{formatDate(payment.paymentDate)}</td>
+                      <td>{payment.invoice?.invoiceNumber || '-'}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

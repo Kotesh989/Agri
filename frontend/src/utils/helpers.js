@@ -32,6 +32,7 @@ export const formatDateTime = (date) => {
 export const getStatusColor = (status) => {
   const colors = {
     PENDING: 'badge-yellow',
+    UNPAID: 'badge-yellow',
     PAID: 'badge-green',
     PARTIAL: 'badge-blue',
     OVERDUE: 'badge-red',

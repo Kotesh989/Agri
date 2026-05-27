@@ -148,7 +148,7 @@ const productSchema = new Schema({
   storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
   name: { type: String, required: true },
   brandName: { type: String, required: true, trim: true },
-  category: { type: String, enum: ['FERTILIZER', 'PESTICIDE'], required: true, default: 'FERTILIZER' },
+  category: { type: String, enum: ['FERTILIZER', 'PESTICIDE', 'SEEDS', 'OTHER'], required: true, default: 'FERTILIZER' },
   stockQuantity: { type: Number, default: 0 },
   unitType: { type: String, required: true, trim: true },
   pricePerUnit: { type: Number, required: true, default: 0 },
@@ -247,9 +247,9 @@ const invoiceSchema = new Schema({
   paidAmount: { type: Number, default: 0 },
   balanceDue: { type: Number, default: 0 },
   dueAmount: { type: Number, default: 0 },
-  paymentStatus: { type: String, default: 'PENDING' },
+  paymentStatus: { type: String, default: 'UNPAID' },
   paidAt: Date,
-  status: { type: String, default: 'PENDING' },
+  status: { type: String, default: 'UNPAID' },
   paymentMethod: String,
   notes: String,
   pdfUrl: String,
@@ -353,9 +353,9 @@ const settingsSchema = new Schema({
   shopPhone: String,
   shopEmail: String,
   gstNumber: String,
-  upiId: String,
-  accountHolderName: String,
-  bankName: String,
+  upiId: { type: String, trim: true },
+  accountHolderName: { type: String, trim: true },
+  bankName: { type: String, trim: true },
   customUpiQrImageUrl: String,
   invoicePrefix: { type: String, default: 'INV' },
   receiptPrefix: { type: String, default: 'RCP' },
@@ -424,6 +424,18 @@ const stockMovementSchema = new Schema({
 
 stockMovementSchema.index({ adminId: 1, storeId: 1, productId: 1, createdAt: -1 });
 
+const auditLogSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  action: { type: String, required: true, index: true },
+  entityType: { type: String, required: true, index: true },
+  entityId: { type: Schema.Types.ObjectId, index: true },
+  metadata: Schema.Types.Mixed,
+}, baseOptions);
+
+auditLogSchema.index({ adminId: 1, storeId: 1, createdAt: -1 });
+
 export const User = mongoose.model('User', userSchema);
 export const PasswordResetOtp = mongoose.model('PasswordResetOtp', passwordResetOtpSchema);
 export const FarmerAuthOtp = mongoose.model('FarmerAuthOtp', farmerAuthOtpSchema);
@@ -443,3 +455,4 @@ export const Notification = mongoose.model('Notification', notificationSchema);
 export const StockAlert = mongoose.model('StockAlert', stockAlertSchema);
 export const Backup = mongoose.model('Backup', backupSchema);
 export const StockMovement = mongoose.model('StockMovement', stockMovementSchema);
+export const AuditLog = mongoose.model('AuditLog', auditLogSchema);

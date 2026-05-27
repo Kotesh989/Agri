@@ -882,3 +882,6 @@ npm run dev  # In both terminals
 ---
 
 **Good debugging is 90% of the solution!** 🔍
+# Documentation Status
+
+This troubleshooting guide contains older Prisma/PostgreSQL sections kept for reference. For active MongoDB/Mongoose setup issues, start with `README.md`, `QUICK_START.md`, and `DEPLOYMENT_GUIDE.md`.

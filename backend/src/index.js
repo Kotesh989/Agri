@@ -18,7 +18,7 @@ const defaultFrontendUrls = [
   'http://localhost:5174',
   'http://127.0.0.1:5174',
 ];
-const configuredFrontendUrls = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
+const configuredFrontendUrls = (process.env.FRONTEND_URLS || process.env.CLIENT_URL || process.env.FRONTEND_URL || '')
   .split(',')
   .map((url) => url.trim())
   .filter(Boolean);
@@ -30,6 +30,18 @@ app.use(helmet());
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: Number(process.env.RATE_LIMIT_MAX || 300),
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+app.use('/api/auth', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.AUTH_RATE_LIMIT_MAX || 25),
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+app.use('/api/auth/farmer/otp', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.OTP_RATE_LIMIT_MAX || 5),
   standardHeaders: true,
   legacyHeaders: false,
 }));
@@ -67,7 +79,7 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     await connectMongo();
-    if (process.env.RUN_SEED_ON_START === 'true' || process.env.NODE_ENV !== 'production') {
+    if (process.env.RUN_SEED_ON_START === 'true') {
       await seedMongo();
     }
 

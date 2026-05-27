@@ -5,6 +5,7 @@ import { useNotificationContext } from '../components/Notification';
 import { showError } from '../utils/notificationService';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
+import QRCode from 'react-qr-code';
 
 export const SettingsPage = () => {
   const [settings, setSettings] = useState({
@@ -32,8 +33,12 @@ export const SettingsPage = () => {
   const { t } = useTranslation();
 
   const isValidUpiId = (value) => {
-    return /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(String(value || '').trim());
+    return /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/.test(String(value || '').trim());
   };
+
+  const upiPaymentUrl = settings.upiId
+    ? `upi://pay?pa=${encodeURIComponent(settings.upiId.trim())}&pn=${encodeURIComponent(settings.accountHolderName || '')}&cu=INR`
+    : '';
 
   useEffect(() => {
     fetchSettings();
@@ -87,7 +92,7 @@ export const SettingsPage = () => {
         <main className="app-main">
           <h1 className="text-3xl font-bold mb-6">{t('nav.settings')}</h1>
 
-          <div className="max-w-2xl">
+          <div className="grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
             <form onSubmit={handleSubmit} className="card space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -230,6 +235,26 @@ export const SettingsPage = () => {
                 </button>
               </div>
             </form>
+
+            <aside className="card h-fit">
+              <h2 className="mb-3 text-lg font-semibold">UPI QR Preview</h2>
+              <div className="flex justify-center rounded-lg border bg-white p-4">
+                {settings.customUpiQrImageUrl ? (
+                  <img src={settings.customUpiQrImageUrl} alt="UPI QR preview" className="h-48 w-48 object-contain" />
+                ) : upiPaymentUrl && isValidUpiId(settings.upiId) ? (
+                  <QRCode value={upiPaymentUrl} size={192} />
+                ) : (
+                  <div className="flex h-48 w-48 items-center justify-center text-center text-sm text-slate-500">
+                    Enter a valid UPI ID to preview QR.
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 space-y-1 text-sm text-slate-700 dark:text-gray-300">
+                <p className="font-semibold">{settings.upiId || 'example@upi'}</p>
+                <p>{settings.accountHolderName || 'Account holder name'}</p>
+                <p>{settings.bankName || 'Bank name'}</p>
+              </div>
+            </aside>
           </div>
         </main>
       </div>

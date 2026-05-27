@@ -381,3 +381,6 @@ VITE_APP_NAME=Agri Fertilizer Shop
 ---
 
 This structure keeps code organized, maintainable, and scalable for future growth! 🚀
+# Documentation Status
+
+This structure document contains older Prisma/PostgreSQL references. The active backend models are in `backend/src/models/index.js`; deprecated Prisma files are under `deprecated/prisma/`.

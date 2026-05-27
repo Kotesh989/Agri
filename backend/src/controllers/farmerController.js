@@ -5,6 +5,7 @@ import {
   FarmerStoreLink,
   Invoice,
   Product,
+  Settings,
   User,
   WishlistItem,
 } from '../models/index.js';
@@ -85,7 +86,14 @@ const getStoreFallback = (invoice) => {
   };
 };
 
-const toManualInvoiceRow = (item) => {
+const publicPaymentSettings = (settings) => settings?.upiId ? {
+  upiId: settings.upiId,
+  accountHolderName: settings.accountHolderName || '',
+  bankName: settings.bankName || '',
+  customUpiQrImageUrl: settings.customUpiQrImageUrl || '',
+} : null;
+
+const toManualInvoiceRow = (item, settings = null) => {
   const storeInfo = getStoreFallback(item);
   return {
     id: `manual-${item.id}`,
@@ -110,12 +118,13 @@ const toManualInvoiceRow = (item) => {
     amountPaid: 0,
     paidAmount: 0,
     balanceDue: item.totalAmount,
-    status: 'PENDING',
+    status: 'UNPAID',
     pdfUrl: null,
+    paymentSettings: publicPaymentSettings(settings),
   };
 };
 
-const toFarmerInvoiceRow = (invoice) => ({
+const toFarmerInvoiceRow = (invoice, settings = null) => ({
   id: invoice.id,
   invoiceNumber: invoice.invoiceNumber,
   invoiceDate: invoice.invoiceDate,
@@ -140,7 +149,31 @@ const toFarmerInvoiceRow = (invoice) => ({
   balanceDue: invoice.balanceDue,
   status: invoice.status,
   pdfUrl: invoice.pdfUrl,
+  paymentSettings: publicPaymentSettings(settings),
 });
+
+const getSettingsForInvoices = async (invoices) => {
+  const filters = invoices
+    .map((invoice) => {
+      const adminId = asId(invoice.adminId);
+      const storeId = asId(invoice.storeId);
+      return adminId ? { adminId, ...(storeId ? { storeId } : {}) } : null;
+    })
+    .filter(Boolean);
+  if (filters.length === 0) return new Map();
+  const settingsRows = await Settings.find({ $or: filters });
+  const map = new Map();
+  settingsRows.forEach((settings) => {
+    map.set(`${asId(settings.adminId)}:${asId(settings.storeId) || ''}`, settings);
+  });
+  return map;
+};
+
+const findInvoiceSettings = (settingsMap, invoice) => (
+  settingsMap.get(`${asId(invoice.adminId)}:${asId(invoice.storeId) || ''}`) ||
+  settingsMap.get(`${asId(invoice.adminId)}:`) ||
+  null
+);
 
 const publicProduct = (product) => {
   const stock = Number(product.stockQuantity ?? product.currentStock ?? 0);
@@ -176,6 +209,8 @@ export const getDashboard = async (req, res) => {
     const totalAmount = invoices.reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0);
     const stores = new Set(invoices.map((invoice) => invoice.storeId?.id || invoice.storeId?.toString()).filter(Boolean));
 
+    const settingsMap = await getSettingsForInvoices(invoices);
+
     res.json({
       success: true,
       data: {
@@ -185,7 +220,7 @@ export const getDashboard = async (req, res) => {
         pendingAmount,
         creditBalance: 0,
         shopCount: stores.size,
-        recentInvoices: invoices.slice(0, 5).map(toFarmerInvoiceRow),
+        recentInvoices: invoices.slice(0, 5).map((invoice) => toFarmerInvoiceRow(invoice, findInvoiceSettings(settingsMap, invoice))),
       },
     });
   } catch (error) {
@@ -202,7 +237,8 @@ export const listInvoices = async (req, res) => {
       .populate('items.product')
       .populate('storeId')
       .populate('adminId');
-    res.json({ success: true, data: invoices.map(toFarmerInvoiceRow) });
+    const settingsMap = await getSettingsForInvoices(invoices);
+    res.json({ success: true, data: invoices.map((invoice) => toFarmerInvoiceRow(invoice, findInvoiceSettings(settingsMap, invoice))) });
   } catch (error) {
     console.error('List farmer invoices error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -309,7 +345,14 @@ export const listShopInvoices = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Store access denied' });
     }
 
-    res.json({ success: true, data: [...invoices.map(toFarmerInvoiceRow), ...manualItems.map(toManualInvoiceRow)] });
+    const settingsMap = await getSettingsForInvoices([...invoices, ...manualItems]);
+    res.json({
+      success: true,
+      data: [
+        ...invoices.map((invoice) => toFarmerInvoiceRow(invoice, findInvoiceSettings(settingsMap, invoice))),
+        ...manualItems.map((item) => toManualInvoiceRow(item, findInvoiceSettings(settingsMap, item))),
+      ],
+    });
   } catch (error) {
     console.error('List farmer shop invoices error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -349,7 +392,9 @@ export const getInvoice = async (req, res) => {
       .populate('adminId')
       .populate('customer');
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
-    res.json({ success: true, data: { ...invoice.toJSON(), farmerView: toFarmerInvoiceRow(invoice) } });
+    const settingsMap = await getSettingsForInvoices([invoice]);
+    const paymentSettings = findInvoiceSettings(settingsMap, invoice);
+    res.json({ success: true, data: { ...invoice.toJSON(), paymentSettings: publicPaymentSettings(paymentSettings), farmerView: toFarmerInvoiceRow(invoice, paymentSettings) } });
   } catch (error) {
     console.error('Get farmer invoice error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

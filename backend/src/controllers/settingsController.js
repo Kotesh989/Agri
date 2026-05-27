@@ -1,7 +1,8 @@
 import { Settings } from '../models/index.js';
 import { getOwnerFilter, getRequestAdminId, getRequestStoreId } from '../utils/ownership.js';
+import { writeAuditLog } from '../utils/audit.js';
 
-const upiIdRegex = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+const upiIdRegex = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/;
 const isValidHttpUrl = (value) => {
   try {
     const url = new URL(value);
@@ -54,6 +55,7 @@ export const updateSettings = async (req, res) => {
       upsert: true,
       setDefaultsOnInsert: true,
     });
+    await writeAuditLog(req, 'SETTINGS_CHANGED', 'Settings', settings._id, { fields: Object.keys(update) });
 
     res.json({ success: true, message: 'Settings updated successfully', data: settings });
   } catch (error) {

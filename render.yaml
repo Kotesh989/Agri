@@ -12,11 +12,17 @@ services:
         value: production
       - key: RUN_SEED_ON_START
         value: "false"
+      - key: AUTH_RATE_LIMIT_MAX
+        value: "25"
+      - key: OTP_RATE_LIMIT_MAX
+        value: "5"
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI
         sync: false
       - key: FRONTEND_URLS
+        sync: false
+      - key: CLIENT_URL
         sync: false
       - key: SUPABASE_URL
         sync: false

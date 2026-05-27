@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Download, Package, Store } from 'lucide-react';
+import { Download, Package, Share2, Store } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { Navbar } from '../components/Navbar';
 import { Sidebar } from '../components/Sidebar';
 import { FarmerMobileNav } from '../components/FarmerMobileNav';
@@ -11,11 +12,15 @@ import { formatCurrency } from '../utils/helpers';
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString('en-IN') : '-');
 const displayStoreName = (store) => store?.storeName || store?.companyName || store?.shopName || store?.name || 'Unknown Store';
+const upiPaymentUrl = (settings) => settings?.upiId
+  ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.accountHolderName || '')}&cu=INR`
+  : '';
 
 export const FarmerPurchaseHistoryPage = () => {
   const { storeId } = useParams();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ startDate: '', endDate: '', status: 'ALL' });
 
   useEffect(() => {
     api.get(`/farmer/stores/${storeId}/invoices`)
@@ -23,11 +28,19 @@ export const FarmerPurchaseHistoryPage = () => {
       .finally(() => setLoading(false));
   }, [storeId]);
 
-  const totals = useMemo(() => invoices.reduce((summary, invoice) => ({
+  const filteredInvoices = useMemo(() => invoices.filter((invoice) => {
+    const invoiceDate = invoice.invoiceDate ? new Date(invoice.invoiceDate) : null;
+    if (filters.startDate && invoiceDate && invoiceDate < new Date(filters.startDate)) return false;
+    if (filters.endDate && invoiceDate && invoiceDate > new Date(`${filters.endDate}T23:59:59`)) return false;
+    if (filters.status !== 'ALL' && invoice.status !== filters.status) return false;
+    return true;
+  }), [filters, invoices]);
+
+  const totals = useMemo(() => filteredInvoices.reduce((summary, invoice) => ({
     amount: summary.amount + Number(invoice.totalAmount || 0),
     paid: summary.paid + Number(invoice.amountPaid || invoice.paidAmount || 0),
     due: summary.due + Number(invoice.balanceDue || 0),
-  }), { amount: 0, paid: 0, due: 0 }), [invoices]);
+  }), { amount: 0, paid: 0, due: 0 }), [filteredInvoices]);
 
   const shopName = displayStoreName(invoices[0]);
 
@@ -49,11 +62,24 @@ export const FarmerPurchaseHistoryPage = () => {
             <div className="card"><p className="text-sm text-slate-500">Due amount</p><p className="text-2xl font-bold text-rose-600">{formatCurrency(totals.due)}</p></div>
           </div>
 
+          <div className="card mb-6 grid gap-3 md:grid-cols-[1fr_1fr_180px]">
+            <input className="input" type="date" value={filters.startDate} onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))} aria-label="Start date" />
+            <input className="input" type="date" value={filters.endDate} onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))} aria-label="End date" />
+            <select className="input" value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))} aria-label="Payment status">
+              <option value="ALL">All statuses</option>
+              <option value="PAID">Paid</option>
+              <option value="PARTIAL">Partial</option>
+              <option value="UNPAID">Unpaid</option>
+            </select>
+          </div>
+
           {loading && <LoadingSkeleton rows={5} />}
-          {!loading && invoices.length === 0 && <EmptyState title="No invoices found" message="Only shops where you purchased are visible." />}
+          {!loading && filteredInvoices.length === 0 && <EmptyState title="No invoices found" message="Only shops where you purchased are visible." />}
 
           <div className="space-y-4 md:hidden">
-            {invoices.map((invoice) => (
+            {filteredInvoices.map((invoice) => {
+              const shareText = encodeURIComponent(`Invoice ${invoice.invoiceNumber}\nStore: ${displayStoreName(invoice)}\nTotal: ${formatCurrency(invoice.totalAmount)}\nPaid: ${formatCurrency(invoice.amountPaid || invoice.paidAmount || 0)}\nBalance: ${formatCurrency(invoice.balanceDue || 0)}${invoice.pdfUrl ? `\nPDF: ${invoice.pdfUrl}` : ''}`);
+              return (
               <article key={invoice.id} className="card">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
@@ -75,9 +101,25 @@ export const FarmerPurchaseHistoryPage = () => {
                   <div><p className="text-slate-500">Paid</p><p className="font-bold">{formatCurrency(invoice.amountPaid || invoice.paidAmount)}</p></div>
                   <div><p className="text-slate-500">Due</p><p className="font-bold text-rose-600">{formatCurrency(invoice.balanceDue)}</p></div>
                 </div>
-                {invoice.pdfUrl && <a href={invoice.pdfUrl} target="_blank" rel="noreferrer" className="btn btn-primary mt-4 w-full justify-center"><Download className="h-4 w-4" /> Download PDF</a>}
+                {invoice.paymentSettings?.upiId && Number(invoice.balanceDue || 0) > 0 && (
+                  <div className="mt-4 flex items-center gap-3 rounded-lg border bg-white p-3 dark:bg-gray-900">
+                    {invoice.paymentSettings.customUpiQrImageUrl ? (
+                      <img src={invoice.paymentSettings.customUpiQrImageUrl} alt="UPI QR" className="h-20 w-20 object-contain" />
+                    ) : (
+                      <QRCode value={upiPaymentUrl(invoice.paymentSettings)} size={80} />
+                    )}
+                    <div className="text-sm">
+                      <p className="font-semibold">Scan to Pay</p>
+                      <p className="text-slate-600">{invoice.paymentSettings.upiId}</p>
+                      <p className="text-xs text-slate-500">Admin will confirm after payment.</p>
+                    </div>
+                  </div>
+                )}
+                {!String(invoice.id).startsWith('manual-') && <Link to={`/farmer/invoices/${invoice.id}`} className="btn btn-secondary mt-4 w-full justify-center">View Payment Details</Link>}
+                {invoice.pdfUrl && <a href={invoice.pdfUrl} target="_blank" rel="noreferrer" className="btn btn-primary mt-4 w-full justify-center"><Download className="h-4 w-4" /> Download Invoice</a>}
+                <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noreferrer" className="btn btn-secondary mt-3 w-full justify-center"><Share2 className="h-4 w-4" /> Share on WhatsApp</a>
               </article>
-            ))}
+            );})}
           </div>
 
           <div className="card hidden overflow-x-auto md:block">
@@ -92,11 +134,14 @@ export const FarmerPurchaseHistoryPage = () => {
                   <th>Paid</th>
                   <th>Due</th>
                   <th>Status</th>
+                  <th>Payment</th>
                   <th>PDF</th>
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((invoice) => (
+                {filteredInvoices.map((invoice) => {
+                  const shareText = encodeURIComponent(`Invoice ${invoice.invoiceNumber}\nStore: ${displayStoreName(invoice)}\nTotal: ${formatCurrency(invoice.totalAmount)}\nPaid: ${formatCurrency(invoice.amountPaid || invoice.paidAmount || 0)}\nBalance: ${formatCurrency(invoice.balanceDue || 0)}${invoice.pdfUrl ? `\nPDF: ${invoice.pdfUrl}` : ''}`);
+                  return (
                   <tr key={invoice.id}>
                     <td>{invoice.invoiceNumber}</td>
                     <td>{formatDate(invoice.invoiceDate)}</td>
@@ -106,9 +151,18 @@ export const FarmerPurchaseHistoryPage = () => {
                     <td>{formatCurrency(invoice.amountPaid || invoice.paidAmount)}</td>
                     <td>{formatCurrency(invoice.balanceDue)}</td>
                     <td><span className="badge badge-green">{invoice.status}</span></td>
-                    <td>{invoice.pdfUrl ? <a className="btn btn-secondary btn-sm" href={invoice.pdfUrl} target="_blank" rel="noreferrer"><Download className="h-4 w-4" /></a> : '-'}</td>
+                    <td>
+                      {!String(invoice.id).startsWith('manual-') ? (
+                        <Link to={`/farmer/invoices/${invoice.id}`} className="btn btn-secondary btn-sm">
+                          Scan to Pay
+                        </Link>
+                      ) : invoice.paymentSettings?.upiId && Number(invoice.balanceDue || 0) > 0 ? (
+                        <span className="text-sm">{invoice.paymentSettings.upiId}</span>
+                      ) : '-'}
+                    </td>
+                    <td className="flex gap-2">{invoice.pdfUrl ? <a className="btn btn-secondary btn-sm" href={invoice.pdfUrl} target="_blank" rel="noreferrer"><Download className="h-4 w-4" /></a> : '-'}<a className="btn btn-secondary btn-sm" href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noreferrer"><Share2 className="h-4 w-4" /></a></td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>

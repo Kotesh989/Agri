@@ -2,6 +2,9 @@ import { Customer, CustomerPurchasedItem, FarmerStoreLink, Invoice, Payment, Pro
 import { hashPassword } from '../utils/password.js';
 import { getOwnerFilter, getRequestAdminId, ownedDocument } from '../utils/ownership.js';
 import { getRequestStoreId } from '../utils/ownership.js';
+import { validationError as sendValidationError } from '../utils/http.js';
+import { isTenDigitPhone, isValidEmail, isValidGstNumber } from '../utils/validators.js';
+import { writeAuditLog } from '../utils/audit.js';
 import crypto from 'node:crypto';
 
 const searchRegex = (value) => new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -150,6 +153,15 @@ const getCreditSnapshot = (customer) => {
   };
 };
 
+const validateCustomerInput = ({ name, mobileNumber, email, gstNumber, creditLimit }) => {
+  if (!String(name || '').trim()) return 'Name is required';
+  if (!isTenDigitPhone(mobileNumber)) return 'Phone number must be 10 digits';
+  if (!isValidEmail(email)) return 'Email must be valid';
+  if (!isValidGstNumber(gstNumber)) return 'GST number must match Indian GST format';
+  if (creditLimit !== undefined && (!Number.isFinite(Number(creditLimit)) || Number(creditLimit) < 0)) return 'Credit limit must be zero or greater';
+  return null;
+};
+
 const ensureCustomerFarmerUser = async (customer) => {
   if (customer.farmerUserId) return customer.farmerUserId;
   let farmer = await User.findOne({ role: 'FARMER', mobileNumber: customer.mobileNumber });
@@ -186,8 +198,9 @@ export const createCustomer = async (req, res) => {
   try {
     const { name, mobileNumber, email, address, city, village, taluk, district, state, pinCode, aadhaarNumber, creditLimit, password } = req.body;
 
-    if (!name || !mobileNumber) {
-      return res.status(400).json({ success: false, message: 'Name and mobile number are required' });
+    const inputError = validateCustomerInput(req.body);
+    if (inputError) {
+      return sendValidationError(res, inputError);
     }
 
     const adminId = getRequestAdminId(req);
@@ -243,6 +256,7 @@ export const createCustomer = async (req, res) => {
       state,
       pinCode,
       aadhaarNumber,
+      gstNumber: req.body.gstNumber,
       creditLimit: Number(creditLimit || 0),
     });
     await FarmerStoreLink.findOneAndUpdate(
@@ -391,6 +405,7 @@ export const addCustomerPurchasedItem = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Paid amount cannot exceed invoice total' });
     }
 
+    const invoiceStatus = invoiceBalanceDue <= 0 ? 'PAID' : invoicePaidAmount > 0 ? 'PARTIAL' : 'UNPAID';
     const invoice = await Invoice.create({
       adminId: getRequestAdminId(req),
       storeId: getRequestStoreId(req),
@@ -414,9 +429,9 @@ export const addCustomerPurchasedItem = async (req, res) => {
       paidAmount: invoicePaidAmount,
       balanceDue: invoiceBalanceDue,
       dueAmount: invoiceBalanceDue,
-      paymentStatus: invoicePaidAmount >= invoiceTotalAmount ? 'PAID' : invoicePaidAmount > 0 ? 'PARTIAL' : 'PENDING',
-      paidAt: invoicePaidAmount >= invoiceTotalAmount ? new Date() : undefined,
-      status: invoicePaidAmount >= invoiceTotalAmount ? 'PAID' : invoicePaidAmount > 0 ? 'PARTIAL' : 'PENDING',
+      paymentStatus: invoiceStatus,
+      paidAt: invoiceStatus === 'PAID' ? new Date() : undefined,
+      status: invoiceStatus,
       paymentMethod: req.body.paymentMethod || 'CREDIT',
       notes: payload.notes,
       items: [{
@@ -613,6 +628,22 @@ export const updateCustomer = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Customer not found' });
     }
 
+    const nextCustomer = { ...customer.toObject(), ...req.body };
+    const inputError = validateCustomerInput(nextCustomer);
+    if (inputError) {
+      return sendValidationError(res, inputError);
+    }
+    const normalizedMobileNumber = String(nextCustomer.mobileNumber).trim();
+    const duplicate = await Customer.findOne({
+      adminId: customer.adminId,
+      storeId: customer.storeId,
+      mobileNumber: normalizedMobileNumber,
+      _id: { $ne: customer._id },
+    });
+    if (duplicate) {
+      return sendValidationError(res, 'Customer with this mobile number already exists in this shop');
+    }
+
     Object.entries(req.body).forEach(([key, value]) => {
       if (key === 'password') return;
       if (value === undefined || value === '') return;
@@ -658,6 +689,7 @@ export const deleteCustomer = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Customer not found' });
     }
     await CustomerPurchasedItem.deleteMany(getOwnerFilter(req, { customerId: customer._id }));
+    await writeAuditLog(req, 'FARMER_DELETED', 'Customer', customer._id, { name: customer.name, mobileNumber: customer.mobileNumber });
     res.json({ success: true, message: 'Customer deleted successfully' });
   } catch (error) {
     console.error('Delete customer error:', error);

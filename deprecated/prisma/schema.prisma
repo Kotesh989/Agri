@@ -1,3 +1,4 @@
+// DEPRECATED: kept for reference only. The active backend uses MongoDB/Mongoose.
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 

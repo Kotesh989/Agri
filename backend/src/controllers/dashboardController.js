@@ -43,8 +43,8 @@ export const getDashboardStats = async (req, res) => {
     const [todaySales, monthlySales, pendingInvoices, totalDue, expiringProducts, creditPendingCustomers, fertilizerSales, pesticideSales, recentPurchases, invoices] = await Promise.all([
       sumField(Invoice, { ...ownerMatch, invoiceDate: { $gte: today, $lt: tomorrow } }, 'totalAmount'),
       sumField(Invoice, { ...ownerMatch, invoiceDate: { $gte: monthStart } }, 'totalAmount'),
-      Invoice.countDocuments({ ...ownerFilter, status: { $in: ['PENDING', 'PARTIAL'] } }),
-      sumField(Invoice, { ...ownerMatch, status: { $in: ['PENDING', 'PARTIAL', 'OVERDUE'] } }, 'totalAmount'),
+      Invoice.countDocuments({ ...ownerFilter, status: { $in: ['UNPAID', 'PENDING', 'PARTIAL'] } }),
+      sumField(Invoice, { ...ownerMatch, status: { $in: ['UNPAID', 'PENDING', 'PARTIAL', 'OVERDUE'] } }, 'totalAmount'),
       Product.countDocuments({ ...ownerFilter, expiryDate: { $lte: thirtyDaysFromNow, $gte: new Date() } }),
       Customer.countDocuments({ ...ownerFilter, totalCredit: { $gt: 0 } }),
       CustomerPurchasedItem.countDocuments({ ...ownerFilter, category: 'FERTILIZER' }),
@@ -55,7 +55,7 @@ export const getDashboardStats = async (req, res) => {
 
     const salesByMonthMap = {};
     const topProductsMap = {};
-    const paymentStatusMap = { PAID: 0, PARTIAL: 0, PENDING: 0, OVERDUE: 0 };
+    const paymentStatusMap = { PAID: 0, PARTIAL: 0, UNPAID: 0, OVERDUE: 0 };
     let totalProfit = 0;
 
     invoices.forEach((invoice) => {

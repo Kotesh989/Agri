@@ -1,13 +1,23 @@
 import { CustomerPurchasedItem, Product, Supplier } from '../models/index.js';
 import { getOwnerFilter, getRequestAdminId, getRequestStoreId, ownedDocument } from '../utils/ownership.js';
+import { validationError as sendValidationError } from '../utils/http.js';
+import { isValidDateValue, validGstRates } from '../utils/validators.js';
+import { writeAuditLog } from '../utils/audit.js';
 
 const searchRegex = (value) => new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 const pesticideWeightUnits = ['Gram', 'Kg', 'ML', 'Litre'];
 
-const pesticideCategories = new Set(['PESTICIDE', 'INSECTICIDE', 'HERBICIDE', 'FUNGICIDE']);
-const normalizeCategory = (category) => pesticideCategories.has(String(category || 'FERTILIZER').trim().toUpperCase())
-  ? 'PESTICIDE'
-  : 'FERTILIZER';
+const categoryAliases = {
+  PESTICIDE: 'PESTICIDE',
+  INSECTICIDE: 'PESTICIDE',
+  HERBICIDE: 'PESTICIDE',
+  FUNGICIDE: 'PESTICIDE',
+  SEED: 'SEEDS',
+  SEEDS: 'SEEDS',
+  OTHER: 'OTHER',
+  FERTILIZER: 'FERTILIZER',
+};
+const normalizeCategory = (category) => categoryAliases[String(category || 'FERTILIZER').trim().toUpperCase()] || 'FERTILIZER';
 
 const buildProductPayload = (body) => {
   const category = normalizeCategory(body.category);
@@ -59,7 +69,10 @@ const validateProductPayload = (payload) => {
   if (!payload.brandName) return 'Brand name is required';
   if (!payload.unitType) return 'Unit type is required';
   if (!Number.isFinite(payload.stockQuantity) || payload.stockQuantity < 0) return 'Stock quantity must be zero or greater';
+  if (!Number.isFinite(payload.purchasePrice) || payload.purchasePrice < 0) return 'Purchase price must be zero or greater';
   if (!Number.isFinite(payload.pricePerUnit) || payload.pricePerUnit < 0) return 'Price per unit must be zero or greater';
+  if (!validGstRates.has(Number(payload.gstRate))) return 'GST rate must be 0, 5, 12, 18, or 28';
+  if (!isValidDateValue(payload.expiryDate)) return 'Expiry date must be valid';
   if (!Number.isFinite(payload.lowStockAlert) || payload.lowStockAlert < 0) return 'Low stock alert must be zero or greater';
   if (payload.category === 'PESTICIDE') {
     if (payload.pesticideWeight !== undefined && (!Number.isFinite(payload.pesticideWeight) || payload.pesticideWeight <= 0)) {
@@ -75,9 +88,9 @@ const validateProductPayload = (payload) => {
 export const createProduct = async (req, res) => {
   try {
     const payload = buildProductPayload(req.body);
-    const validationError = validateProductPayload(payload);
-    if (validationError) {
-      return res.status(400).json({ success: false, message: validationError });
+    const validationMessage = validateProductPayload(payload);
+    if (validationMessage) {
+      return sendValidationError(res, validationMessage);
     }
 
     if (payload.supplierId) {
@@ -86,6 +99,7 @@ export const createProduct = async (req, res) => {
     }
 
     const product = await Product.create({ ...payload, adminId: getRequestAdminId(req), storeId: getRequestStoreId(req) });
+    await writeAuditLog(req, 'PRODUCT_ADDED', 'Product', product._id, { productName: product.name, stockQuantity: product.stockQuantity });
 
     res.status(201).json({ success: true, message: 'Product created successfully', data: product });
   } catch (error) {
@@ -101,7 +115,7 @@ export const listProducts = async (req, res) => {
 
     if (search) {
       const regex = searchRegex(search);
-      filter.$or = [{ name: regex }, { brandName: regex }, { brand: regex }, { description: regex }, { npkRatio: regex }];
+      filter.$or = [{ name: regex }, { brandName: regex }, { brand: regex }, { description: regex }, { npkRatio: regex }, { batchNumber: regex }];
     }
     if (category && category !== 'ALL') filter.category = normalizeCategory(category);
     if (brand) filter.$or = [...(filter.$or || []), { brandName: searchRegex(brand) }, { brand: searchRegex(brand) }];
@@ -135,20 +149,28 @@ export const updateProduct = async (req, res) => {
     }
 
     const payload = buildProductPayload({ ...product.toObject(), ...req.body });
-    const validationError = validateProductPayload(payload);
-    if (validationError) {
-      return res.status(400).json({ success: false, message: validationError });
+    const validationMessage = validateProductPayload(payload);
+    if (validationMessage) {
+      return sendValidationError(res, validationMessage);
     }
     if (payload.supplierId) {
       const supplier = await ownedDocument(Supplier, req, payload.supplierId);
       if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
+    const previousStock = Number(product.stockQuantity ?? product.currentStock ?? 0);
     Object.assign(product, payload);
     if (payload.category !== 'PESTICIDE') {
       product.pesticideWeight = undefined;
       product.pesticideWeightUnit = undefined;
     }
     await product.save();
+    if (previousStock !== Number(product.stockQuantity ?? product.currentStock ?? 0)) {
+      await writeAuditLog(req, 'PRODUCT_STOCK_CHANGE', 'Product', product._id, {
+        productName: product.name,
+        previousStock,
+        newStock: Number(product.stockQuantity ?? product.currentStock ?? 0),
+      });
+    }
 
     res.json({ success: true, message: 'Product updated successfully', data: product });
   } catch (error) {

@@ -4,9 +4,17 @@ import { generateInvoicePDF } from '../utils/pdfGenerator.js';
 import { uploadFile } from '../utils/supabase.js';
 import { getOwnerFilter, getRequestAdminId, getRequestStoreId, ownedDocument } from '../utils/ownership.js';
 import { hashPassword } from '../utils/password.js';
+import { validationError as sendValidationError } from '../utils/http.js';
+import { validGstRates } from '../utils/validators.js';
+import { writeAuditLog } from '../utils/audit.js';
 
 const populateInvoice = (query) =>
   query.populate('customer').populate('items.product');
+
+const getInvoiceStatus = (balanceDue, paidAmount = 0) => {
+  if (Number(balanceDue || 0) <= 0) return 'PAID';
+  return Number(paidAmount || 0) > 0 ? 'PARTIAL' : 'UNPAID';
+};
 
 export const createInvoice = async (req, res) => {
   try {
@@ -24,7 +32,7 @@ export const createInvoice = async (req, res) => {
     } = req.body;
 
     if (!customerId || !items || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'Customer and items are required' });
+      return sendValidationError(res, 'Customer and at least one product are required');
     }
 
     const customer = await ownedDocument(Customer, req, customerId);
@@ -76,18 +84,21 @@ export const createInvoice = async (req, res) => {
 
       const quantity = Number(item.quantity);
       if (!Number.isFinite(quantity) || quantity <= 0) {
-        return res.status(400).json({ success: false, message: `Invalid quantity for product ${product.name}` });
+        return sendValidationError(res, `Quantity must be greater than zero for ${product.name}`);
       }
 
       const unitPrice = Number(item.unitPrice ?? product.pricePerUnit ?? product.sellingPrice ?? 0);
       const totalPrice = quantity * unitPrice;
       const gstRate = Number(item.gstPercentage ?? item.gstRate ?? product.gstRate ?? product.gstPercentage ?? 0);
+      if (!validGstRates.has(gstRate)) {
+        return sendValidationError(res, `GST rate for ${product.name} must be 0, 5, 12, 18, or 28`);
+      }
       const itemGstAmount = totalPrice * (gstRate / 100);
       const lineTotal = totalPrice + itemGstAmount;
 
       const availableStock = Number(product.stockQuantity ?? product.currentStock ?? 0);
       if (availableStock < quantity) {
-        return res.status(400).json({ success: false, message: `Insufficient stock for ${product.name}` });
+        return sendValidationError(res, `Quantity cannot exceed stock for ${product.name}`);
       }
 
       totalQuantity += quantity;
@@ -97,8 +108,7 @@ export const createInvoice = async (req, res) => {
       const previousStock = availableStock;
       product.stockQuantity = availableStock - quantity;
       product.currentStock = product.stockQuantity;
-      await product.save();
-      stockUpdates.push({ productId: product._id, previousStock, newStock: product.stockQuantity, quantity, productName: product.name });
+      stockUpdates.push({ product, productId: product._id, previousStock, newStock: product.stockQuantity, quantity, productName: product.name });
 
       invoiceItems.push({
         productId: product._id,
@@ -135,8 +145,11 @@ export const createInvoice = async (req, res) => {
     const totalAmount = subtotal + totalGstAmount - discountAmount + roundOffAmount;
     const balanceDue = Number((totalAmount - paidAmount).toFixed(2));
 
+    if (discountAmount < 0 || discountAmount > subtotal) {
+      return sendValidationError(res, 'Discount cannot exceed subtotal');
+    }
     if (paidAmount < 0 || balanceDue < 0) {
-      return res.status(400).json({ success: false, message: 'Paid amount cannot exceed total amount' });
+      return sendValidationError(res, 'Paid amount cannot exceed total amount');
     }
 
     if (balanceDue > 0) {
@@ -152,6 +165,9 @@ export const createInvoice = async (req, res) => {
       await customer.save();
     }
 
+    await Promise.all(stockUpdates.map((movement) => movement.product.save()));
+
+    const invoiceStatus = getInvoiceStatus(balanceDue, paidAmount);
     const createdInvoice = await Invoice.create({
       adminId: getRequestAdminId(req),
       storeId: getRequestStoreId(req),
@@ -181,10 +197,10 @@ export const createInvoice = async (req, res) => {
       paidAmount,
       balanceDue,
       dueAmount: balanceDue,
-      paymentStatus: paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'PENDING',
-      paidAt: paidAmount >= totalAmount ? new Date() : undefined,
+      paymentStatus: invoiceStatus,
+      paidAt: invoiceStatus === 'PAID' ? new Date() : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
-      status: paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'PENDING',
+      status: invoiceStatus,
       paymentMethod,
       notes,
       items: invoiceItems,
@@ -201,6 +217,20 @@ export const createInvoice = async (req, res) => {
       previousStock: movement.previousStock,
       newStock: movement.newStock,
       note: `Sold ${movement.productName} on ${createdInvoice.invoiceNumber}`,
+    })));
+    await writeAuditLog(req, 'INVOICE_CREATED', 'Invoice', createdInvoice._id, {
+      invoiceNumber: createdInvoice.invoiceNumber,
+      totalAmount,
+      balanceDue,
+      itemCount: invoiceItems.length,
+    });
+    await Promise.all(stockUpdates.map((movement) => writeAuditLog(req, 'PRODUCT_STOCK_CHANGE', 'Product', movement.productId, {
+      source: 'INVOICE',
+      invoiceId: createdInvoice._id,
+      invoiceNumber: createdInvoice.invoiceNumber,
+      productName: movement.productName,
+      previousStock: movement.previousStock,
+      newStock: movement.newStock,
     })));
 
     if (paidAmount > 0) {
@@ -351,7 +381,14 @@ export const getInvoice = async (req, res) => {
 
 export const updateInvoiceStatus = async (req, res) => {
   try {
-    const invoice = await populateInvoice(Invoice.findOneAndUpdate(getOwnerFilter(req, { _id: req.params.id }), { status: req.body.status }, { returnDocument: 'after' }));
+    const update = { status: req.body.status };
+    if (req.body.status === 'PAID') {
+      update.paymentStatus = 'PAID';
+      update.balanceDue = 0;
+      update.dueAmount = 0;
+      update.paidAt = new Date();
+    }
+    const invoice = await populateInvoice(Invoice.findOneAndUpdate(getOwnerFilter(req, { _id: req.params.id }), update, { returnDocument: 'after' }));
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
     res.json({ success: true, message: 'Invoice updated successfully', data: invoice });
   } catch (error) {

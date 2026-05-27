@@ -540,3 +540,6 @@ Then create notification service.
 ---
 
 **Still stuck? Create an issue on GitHub with details!** 🚀
+# Documentation Status
+
+This FAQ contains older Prisma/PostgreSQL answers kept for reference. For the active MongoDB/Mongoose backend, use `README.md`, `QUICK_START.md`, and `ENVIRONMENT.md`.

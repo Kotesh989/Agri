@@ -22,7 +22,7 @@ export const InvoicesPage = () => {
   const [formData, setFormData] = useState({
     customerId: '',
     items: [{ productId: '', quantity: 0, unitPrice: 0, gstPercentage: 0 }],
-    paymentMethod: 'CASH',
+    paymentMethod: 'UPI',
     notes: '',
     discount: 0,
     roundOff: 0,
@@ -167,7 +167,6 @@ export const InvoicesPage = () => {
       showError('One or more invoice items exceed available stock. Adjust quantities before submitting');
       return;
     }
-
     try {
       const payload = {
         customerId: formData.customerId,
@@ -191,7 +190,7 @@ export const InvoicesPage = () => {
       setFormData({
         customerId: '',
         items: [{ productId: '', quantity: 0, unitPrice: 0, gstPercentage: 0 }],
-        paymentMethod: 'CASH',
+        paymentMethod: 'UPI',
         notes: '',
         discount: 0,
         roundOff: 0,
@@ -259,7 +258,7 @@ export const InvoicesPage = () => {
         customerId: getInvoiceCustomerId(invoice),
         farmerId: invoice.farmerUserId || undefined,
         amountPaid: dueAmount,
-        paymentMethod: 'CASH',
+        paymentMethod: 'UPI',
         note: `Clear due for invoice ${invoice.invoiceNumber}`,
       });
       addNotification('Invoice marked as paid successfully', 'success');
@@ -374,7 +373,7 @@ export const InvoicesPage = () => {
           </div>
 
           <div className="card overflow-x-auto">
-            <table className="table min-w-[980px]">
+            <table className="table min-w-[1120px]">
               <thead>
                 <tr>
                   <th>Invoice #</th>
@@ -383,6 +382,7 @@ export const InvoicesPage = () => {
                   <th>Total</th>
                   <th>Paid</th>
                   <th>Balance</th>
+                  <th>UPI QR</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -396,6 +396,25 @@ export const InvoicesPage = () => {
                     <td>{formatCurrency(invoice.totalAmount)}</td>
                     <td>{formatCurrency(invoice.paidAmount)}</td>
                     <td>{formatCurrency(invoice.balanceDue)}</td>
+                    <td>
+                      {upiPaymentUrl && getInvoiceDueAmount(invoice) > 0 ? (
+                        <div className="flex items-center gap-3">
+                          <div className="rounded border bg-white p-2">
+                            {settings?.customUpiQrImageUrl ? (
+                              <img src={settings.customUpiQrImageUrl} alt="UPI QR" className="h-[72px] w-[72px] object-contain" />
+                            ) : (
+                              <QRCode value={upiPaymentUrl} size={72} />
+                            )}
+                          </div>
+                          <div className="min-w-[120px] text-xs text-slate-600">
+                            <div className="font-semibold text-slate-800">Scan to Pay</div>
+                            <div>{settings?.upiId}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-400">-</span>
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${getStatusColor(invoice.status)}`}>{invoice.status}</span>
                     </td>
@@ -427,7 +446,7 @@ export const InvoicesPage = () => {
                 ))}
                 {!loading && invoices.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="text-center py-8 text-gray-500">
+                    <td colSpan="9" className="text-center py-8 text-gray-500">
                       No invoices found.
                     </td>
                   </tr>
@@ -466,6 +485,7 @@ export const InvoicesPage = () => {
                     className="input"
                   >
                     <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
                     <option value="CREDIT">Credit</option>
                     <option value="CHEQUE">Cheque</option>
                   </select>

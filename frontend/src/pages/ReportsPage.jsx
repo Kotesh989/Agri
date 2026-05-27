@@ -84,6 +84,34 @@ const reportTabs = [
     ],
   },
   {
+    id: 'low-stock',
+    label: 'Low-stock Report',
+    icon: AlertTriangle,
+    endpoint: '/reports/stock',
+    dataPath: (data) => (data || []).filter((row) => row.lowStock),
+    columns: [
+      { key: 'name', label: 'Product' },
+      { key: 'batchNumber', label: 'Batch No.' },
+      { key: 'quantity', label: 'Current Stock', type: 'number' },
+      { key: 'minimumStock', label: 'Minimum Stock', type: 'number' },
+      { key: 'expiryDate', label: 'Expiry Date', type: 'date' },
+    ],
+  },
+  {
+    id: 'expiry',
+    label: 'Expiry Report',
+    icon: AlertTriangle,
+    endpoint: '/reports/stock',
+    dataPath: (data) => (data || []).filter((row) => row.expiryWarning && row.expiryWarning !== 'OK'),
+    columns: [
+      { key: 'name', label: 'Product' },
+      { key: 'batchNumber', label: 'Batch No.' },
+      { key: 'quantity', label: 'Current Stock', type: 'number' },
+      { key: 'expiryDate', label: 'Expiry Date', type: 'date' },
+      { key: 'expiryWarning', label: 'Expiry Warning' },
+    ],
+  },
+  {
     id: 'purchases',
     label: 'Purchase Report',
     icon: ShoppingBag,
@@ -160,6 +188,18 @@ const downloadFile = (content, filename, type) => {
   link.remove();
   URL.revokeObjectURL(url);
 };
+
+const buildExcelHtml = (rows, columns) => `
+  <html>
+    <head><meta charset="UTF-8" /></head>
+    <body>
+      <table>
+        <thead><tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(formatCell(row, column, true))}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </body>
+  </html>
+`;
 
 const exportPdf = (title, rows, columns) => {
   const printWindow = window.open('', '_blank', 'width=1200,height=800');
@@ -280,6 +320,10 @@ export const ReportsPage = () => {
     exportPdf(activeTab.label, rows, activeTab.columns);
   };
 
+  const handleExportExcel = () => {
+    downloadFile(buildExcelHtml(rows, activeTab.columns), `${activeTab.id}-report.xls`, 'application/vnd.ms-excel;charset=utf-8');
+  };
+
   return (
     <div className="app-shell">
       <Sidebar />
@@ -319,7 +363,7 @@ export const ReportsPage = () => {
           </div>
 
           <div className="card mb-6">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_1.4fr_auto_auto_auto]">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_1.4fr_auto_auto_auto_auto]">
               <div>
                 <label className="form-label">Start date</label>
                 <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="input" />
@@ -360,6 +404,12 @@ export const ReportsPage = () => {
                 <button type="button" onClick={handleExportPdf} className="btn btn-secondary w-full" disabled={!rows.length}>
                   <FileText className="h-4 w-4" />
                   PDF
+                </button>
+              </div>
+              <div className="flex items-end">
+                <button type="button" onClick={handleExportExcel} className="btn btn-secondary w-full" disabled={!rows.length}>
+                  <Download className="h-4 w-4" />
+                  Excel
                 </button>
               </div>
             </div>

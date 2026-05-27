@@ -462,3 +462,6 @@ Complete instructions are provided for free deployment using Vercel, Render, and
 *Last Updated: 2024*
 *Version: 1.0.0 (Production Ready)*
 *Status: ✅ Complete*
+# Historical Summary
+
+This summary is historical and may mention the old Prisma/PostgreSQL implementation. The active backend now uses MongoDB/Mongoose.

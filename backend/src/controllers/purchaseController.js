@@ -1,5 +1,6 @@
 import { Product, Purchase, StockMovement, Supplier } from '../models/index.js';
 import { getOwnerFilter, getRequestAdminId, getRequestStoreId, ownedDocument } from '../utils/ownership.js';
+import { writeAuditLog } from '../utils/audit.js';
 
 const populatePurchase = (query) =>
   query.populate('supplier').populate('items.product');
@@ -69,6 +70,11 @@ const applyPurchaseStock = async (req, purchase) => {
   }
 
   if (movements.length) await StockMovement.insertMany(movements);
+  await writeAuditLog(req, 'PURCHASE_RECEIVED', 'Purchase', purchase._id, {
+    purchaseNumber: purchase.purchaseNumber,
+    itemCount: purchase.items.length,
+    totalAmount: purchase.totalAmount,
+  });
   purchase.stockApplied = true;
   purchase.receivedAt = purchase.receivedAt || new Date();
   return movements;

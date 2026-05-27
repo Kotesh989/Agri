@@ -433,3 +433,6 @@ If documentation needs improvement:
 **Happy reading! 📚**
 
 Start with [QUICK_START.md](QUICK_START.md) to get running in 5 minutes! 🚀
+# Documentation Status
+
+Some linked documents are historical and may mention the old Prisma/PostgreSQL path. The active backend is MongoDB/Mongoose; start with `README.md`, `QUICK_START.md`, and `DEPLOYMENT_GUIDE.md`.
