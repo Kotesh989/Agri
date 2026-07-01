@@ -5,6 +5,7 @@ import { NotificationProvider } from './components/Notification';
 import { ConfirmProvider } from './components/ConfirmProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { VoiceAssistant } from './components/VoiceAssistant';
 
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -13,6 +14,7 @@ import { CustomersPage } from './pages/CustomersPage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { PurchasesPage } from './pages/PurchasesPage';
 import { PaymentsPage } from './pages/PaymentsPage';
+import { FarmerDuesPage } from './pages/FarmerDuesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SalesPage } from './pages/SalesPage';
@@ -89,6 +91,14 @@ function App() {
                 element={
                   <ProtectedRoute roles={['ADMIN']}>
                     <PaymentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/farmer-dues"
+                element={
+                  <ProtectedRoute roles={['ADMIN']}>
+                    <FarmerDuesPage />
                   </ProtectedRoute>
                 }
               />
@@ -179,6 +189,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" />} />
               <Route path="*" element={<Navigate to="/dashboard" />} />
             </Routes>
+              <VoiceAssistant />
           </ErrorBoundary>
           </ConfirmProvider>
         </NotificationProvider>

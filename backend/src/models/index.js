@@ -293,6 +293,55 @@ paymentSchema.virtual('invoice', {
 
 paymentSchema.index({ adminId: 1, storeId: 1, customerId: 1, invoiceId: 1, paymentDate: -1 });
 
+const farmerDuePaymentSchema = new Schema({
+  amount: { type: Number, required: true, min: 0.01 },
+  paymentDate: { type: Date, default: Date.now },
+  recordedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+}, { _id: true, toJSON: baseOptions.toJSON, toObject: baseOptions.toObject });
+
+const farmerDueSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
+  farmerName: { type: String, required: true, trim: true },
+  phoneNumber: {
+    type: String,
+    required: true,
+    trim: true,
+    validate: {
+      validator: (value) => /^[0-9]{10}$/.test(String(value || '').replace(/\D/g, '')),
+      message: 'Phone number must be 10 digits',
+    },
+  },
+  village: { type: String, required: true, trim: true },
+  dueAmount: { type: Number, required: true, min: 0.01 },
+  description: { type: String, trim: true },
+  status: { type: String, enum: ['Pending', 'Partially Paid', 'Paid'], default: 'Pending', index: true },
+  paidAmount: { type: Number, default: 0, min: 0 },
+  remainingAmount: { type: Number, default: 0, min: 0 },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  paymentHistory: [farmerDuePaymentSchema],
+}, baseOptions);
+
+farmerDueSchema.pre('validate', function calculateRemainingAmount(next) {
+  const dueAmount = Number(this.dueAmount || 0);
+  const paidAmount = Number(this.paidAmount || 0);
+  this.remainingAmount = Number(Math.max(dueAmount - paidAmount, 0).toFixed(2));
+  if (paidAmount > dueAmount) {
+    this.invalidate('paidAmount', 'Paid amount cannot exceed due amount');
+  }
+  if (this.remainingAmount <= 0 && paidAmount > 0) {
+    this.status = 'Paid';
+  } else if (paidAmount > 0) {
+    this.status = 'Partially Paid';
+  } else {
+    this.status = 'Pending';
+  }
+  next();
+});
+
+farmerDueSchema.index({ adminId: 1, storeId: 1, createdAt: -1 });
+farmerDueSchema.index({ farmerName: 'text', phoneNumber: 'text', village: 'text', description: 'text' });
+
 const purchaseItemSchema = new Schema({
   productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: String,
@@ -447,6 +496,7 @@ export const Product = mongoose.model('Product', productSchema);
 export const Supplier = mongoose.model('Supplier', supplierSchema);
 export const Invoice = mongoose.model('Invoice', invoiceSchema);
 export const Payment = mongoose.model('Payment', paymentSchema);
+export const FarmerDue = mongoose.model('FarmerDue', farmerDueSchema);
 export const Purchase = mongoose.model('Purchase', purchaseSchema);
 export const Settings = mongoose.model('Settings', settingsSchema);
 export const WishlistItem = mongoose.model('WishlistItem', wishlistItemSchema);

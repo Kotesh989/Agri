@@ -7,6 +7,7 @@ export { CustomersPage } from './CustomersPage';
 export { InvoicesPage } from './InvoicesPage';
 export { PurchasesPage } from './PurchasesPage';
 export { PaymentsPage } from './PaymentsPage';
+export { FarmerDuesPage } from './FarmerDuesPage';
 export { ReportsPage } from './ReportsPage';
 export { SettingsPage } from './SettingsPage';
 export { SalesPage } from './SalesPage';

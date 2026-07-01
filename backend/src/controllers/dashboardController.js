@@ -1,4 +1,4 @@
-import { Customer, CustomerPurchasedItem, Invoice, Product, Purchase } from '../models/index.js';
+import { Customer, CustomerPurchasedItem, FarmerDue, Invoice, Product, Purchase } from '../models/index.js';
 import { getOwnerFilter, getOwnerMatch } from '../utils/ownership.js';
 
 const escapeRegex = (value) => String(value || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -40,7 +40,7 @@ export const getDashboardStats = async (req, res) => {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    const [todaySales, monthlySales, pendingInvoices, totalDue, expiringProducts, creditPendingCustomers, fertilizerSales, pesticideSales, recentPurchases, invoices] = await Promise.all([
+    const [todaySales, monthlySales, pendingInvoices, totalDue, expiringProducts, creditPendingCustomers, fertilizerSales, pesticideSales, recentPurchases, invoices, farmerDueTotals, farmerDueStatusCounts, farmerDuePaidToday, farmerDueMonthlyCollection] = await Promise.all([
       sumField(Invoice, { ...ownerMatch, invoiceDate: { $gte: today, $lt: tomorrow } }, 'totalAmount'),
       sumField(Invoice, { ...ownerMatch, invoiceDate: { $gte: monthStart } }, 'totalAmount'),
       Invoice.countDocuments({ ...ownerFilter, status: { $in: ['UNPAID', 'PENDING', 'PARTIAL'] } }),
@@ -51,6 +51,21 @@ export const getDashboardStats = async (req, res) => {
       CustomerPurchasedItem.countDocuments({ ...ownerFilter, category: 'PESTICIDE' }),
       Purchase.find(ownerFilter).populate('supplier').sort({ purchaseDate: -1 }).limit(5),
       Invoice.find(ownerFilter).populate('items.product').sort({ invoiceDate: 1 }),
+      FarmerDue.aggregate([{ $match: ownerMatch }, { $group: { _id: null, totalDueAmount: { $sum: '$remainingAmount' } } }]),
+      FarmerDue.aggregate([{ $match: ownerMatch }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+      FarmerDue.aggregate([
+        { $match: ownerMatch },
+        { $unwind: '$paymentHistory' },
+        { $match: { 'paymentHistory.paymentDate': { $gte: today, $lt: tomorrow } } },
+        { $group: { _id: null, total: { $sum: '$paymentHistory.amount' } } },
+      ]),
+      FarmerDue.aggregate([
+        { $match: ownerMatch },
+        { $unwind: '$paymentHistory' },
+        { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$paymentHistory.paymentDate' } }, total: { $sum: '$paymentHistory.amount' } } },
+        { $sort: { _id: 1 } },
+        { $limit: 12 },
+      ]),
     ]);
 
     const salesByMonthMap = {};
@@ -79,6 +94,7 @@ export const getDashboardStats = async (req, res) => {
       stock: Number(product.stockQuantity ?? product.currentStock ?? 0),
       minimumStock: Number(product.lowStockAlert ?? product.minimumStock ?? 0),
     }));
+    const farmerDueCounts = farmerDueStatusCounts.reduce((map, item) => ({ ...map, [item._id]: item.count }), {});
 
     res.json({
       success: true,
@@ -101,6 +117,14 @@ export const getDashboardStats = async (req, res) => {
         topSellingProducts,
         paymentStatusChart: Object.entries(paymentStatusMap).map(([status, count]) => ({ status, count })),
         stockLevelChart,
+        farmerDueSummary: {
+          totalDueAmount: Number((farmerDueTotals[0]?.totalDueAmount || 0).toFixed(2)),
+          totalPendingFarmers: farmerDueCounts.Pending || 0,
+          totalPartiallyPaid: farmerDueCounts['Partially Paid'] || 0,
+          totalPaidToday: Number((farmerDuePaidToday[0]?.total || 0).toFixed(2)),
+          statusChart: ['Pending', 'Partially Paid', 'Paid'].map((status) => ({ status, count: farmerDueCounts[status] || 0 })),
+          monthlyDueCollection: farmerDueMonthlyCollection.map((item) => ({ month: item._id, total: Number(item.total.toFixed(2)) })),
+        },
       },
     });
   } catch (error) {

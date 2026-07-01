@@ -7,6 +7,7 @@ import {
   Users,
   FileText,
   CreditCard,
+  WalletCards,
   Truck,
   Settings,
   ChevronRight,
@@ -24,6 +25,7 @@ const menuItems = [
   { labelKey: 'nav.purchases', icon: Truck, path: '/purchases' },
   { labelKey: 'nav.suppliers', icon: Truck, path: '/suppliers' },
   { labelKey: 'nav.payments', icon: CreditCard, path: '/payments' },
+  { labelKey: 'nav.farmerDues', icon: WalletCards, path: '/farmer-dues' },
   { labelKey: 'nav.reports', icon: FileText, path: '/reports' },
   { labelKey: 'nav.settings', icon: Settings, path: '/settings', adminOnly: true },
 ];

@@ -16,6 +16,7 @@
     "purchases": "ಖರೀದಿಗಳು",
     "suppliers": "ಸರಬರಾಜುದಾರರು",
     "payments": "ಪಾವತಿಗಳು",
+    "farmerDues": "Farmer Due Management",
     "reports": "ವರದಿಗಳು",
     "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
     "logout": "ಲಾಗ್ ಔಟ್",
@@ -104,7 +105,11 @@
     "name": "ಹೆಸರು",
     "phone": "ಫೋನ್",
     "city": "ನಗರ",
-    "email": "ಇಮೇಲ್"
+    "email": "ಇಮೇಲ್",
+    "view": "ನೋಡಿ",
+    "previous": "ಹಿಂದಿನದು",
+    "next": "ಮುಂದಿನದು",
+    "logout": "ಲಾಗ್ ಔಟ್"
   },
   "inventory": {
     "title": "ಸ್ಟೋರ್ ಇನ್‌ವೆಂಟರಿ",
@@ -158,5 +163,121 @@
     "searchPlaceholder": "ಖರೀದಿಗಳನ್ನು ಹುಡುಕಿ...",
     "purchaseNumber": "ಖರೀದಿ #",
     "supplier": "ಸರಬರಾಜುದಾರ"
+  },
+  "farmerDues": {
+    "admin": "ನಿರ್ವಾಹಕ",
+    "title": "ರೈತರ ಬಾಕಿ ನಿರ್ವಹಣೆ",
+    "addDue": "ಬಾಕಿ ಸೇರಿಸಿ",
+    "editDue": "ಬಾಕಿ ತಿದ್ದುಪಡಿ",
+    "recordPayment": "ಪಾವತಿ ದಾಖಲಿಸಿ",
+    "savePayment": "ಪಾವತಿ ಉಳಿಸಿ",
+    "dueDetails": "ಬಾಕಿ ವಿವರಗಳು",
+    "paymentHistory": "ಪಾವತಿ ಇತಿಹಾಸ",
+    "noPayments": "ಯಾವುದೇ ಪಾವತಿ ದಾಖಲಾಗಿಲ್ಲ",
+    "empty": "ರೈತರ ಬಾಕಿ ದಾಖಲೆಗಳು ಸಿಗಲಿಲ್ಲ",
+    "searchPlaceholder": "ಹೆಸರು, ಫೋನ್, ಗ್ರಾಮ, ಮೊತ್ತ, ಸ್ಥಿತಿ, ವಿವರಣೆ ಹುಡುಕಿ...",
+    "pagination": "ಪುಟ {{page}} / {{totalPages}} · {{total}} ದಾಖಲೆಗಳು",
+    "confirmDeleteTitle": "ರೈತರ ಬಾಕಿ ಅಳಿಸಿ",
+    "confirmDeleteDescription": "{{name}} ಅವರ ಬಾಕಿ ದಾಖಲೆಯನ್ನು ಅಳಿಸಬೇಕೇ?",
+    "fields": {
+      "farmerName": "ರೈತರ ಹೆಸರು",
+      "phoneNumber": "ಫೋನ್ ಸಂಖ್ಯೆ",
+      "village": "ಗ್ರಾಮ",
+      "dueAmount": "ಬಾಕಿ ಮೊತ್ತ",
+      "paidAmount": "ಪಾವತಿಸಿದ ಮೊತ್ತ",
+      "remainingAmount": "ಉಳಿದ ಮೊತ್ತ",
+      "paymentAmount": "ಪಾವತಿ ಮೊತ್ತ",
+      "createdDate": "ರಚಿಸಿದ ದಿನಾಂಕ",
+      "description": "ವಿವರಣೆ"
+    },
+    "placeholders": {
+      "farmerName": "ರೈತರ ಹೆಸರು",
+      "phoneNumber": "ಫೋನ್ ಸಂಖ್ಯೆ",
+      "village": "ಗ್ರಾಮ"
+    },
+    "cards": {
+      "totalDueAmount": "ಒಟ್ಟು ಬಾಕಿ ಮೊತ್ತ",
+      "totalPendingFarmers": "ಒಟ್ಟು ಬಾಕಿ ರೈತರು",
+      "totalPartiallyPaid": "ಭಾಗಶಃ ಪಾವತಿಸಿದವರು",
+      "totalPaidToday": "ಇಂದು ಪಾವತಿಸಿದ ಮೊತ್ತ"
+    },
+    "status": {
+      "Pending": "ಬಾಕಿ",
+      "Partially Paid": "ಭಾಗಶಃ ಪಾವತಿಸಲಾಗಿದೆ",
+      "Paid": "ಪಾವತಿಸಲಾಗಿದೆ"
+    },
+    "filters": {
+      "allStatuses": "ಎಲ್ಲ ಸ್ಥಿತಿಗಳು"
+    },
+    "sort": {
+      "latest": "ಇತ್ತೀಚಿನದು",
+      "oldest": "ಹಳೆಯದು",
+      "highestDue": "ಅತಿ ಹೆಚ್ಚು ಬಾಕಿ",
+      "lowestDue": "ಕಡಿಮೆ ಬಾಕಿ",
+      "farmerNameAZ": "ರೈತರ ಹೆಸರು A-Z"
+    },
+    "export": {
+      "csv": "CSV",
+      "excel": "Excel",
+      "print": "ಮುದ್ರಿಸಿ",
+      "pdf": "PDF ವರದಿ"
+    },
+    "report": {
+      "listTitle": "ರೈತರ ಬಾಕಿ ಪಟ್ಟಿ",
+      "pdfTitle": "ರೈತರ ಬಾಕಿ PDF ವರದಿ"
+    },
+    "chart": {
+      "pendingVsPaid": "ಬಾಕಿ ಮತ್ತು ಪಾವತಿಸಿದ ಹೋಲಿಕೆ",
+      "farmers": "ರೈತರು"
+    },
+    "validation": {
+      "farmerNameRequired": "ರೈತರ ಹೆಸರು ಅಗತ್ಯ",
+      "phoneInvalid": "ಫೋನ್ ಸಂಖ್ಯೆ 10 ಅಂಕಿಗಳಾಗಿರಬೇಕು",
+      "villageRequired": "ಗ್ರಾಮ ಅಗತ್ಯ",
+      "dueAmountPositive": "ಬಾಕಿ ಮೊತ್ತ ಶೂನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿರಬೇಕು",
+      "dueAmountBelowPaid": "ಬಾಕಿ ಮೊತ್ತ ಪಾವತಿಸಿದ ಮೊತ್ತಕ್ಕಿಂತ ಕಡಿಮೆ ಇರಬಾರದು",
+      "paymentAmountPositive": "ಪಾವತಿ ಮೊತ್ತ ಶೂನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿರಬೇಕು",
+      "paymentExceedsRemaining": "ಪಾವತಿ ಉಳಿದ ಮೊತ್ತಕ್ಕಿಂತ ಹೆಚ್ಚಿರಬಾರದು"
+    },
+    "toasts": {
+      "added": "ಬಾಕಿ ಸೇರಿಸಲಾಗಿದೆ",
+      "updated": "ಬಾಕಿ ನವೀಕರಿಸಲಾಗಿದೆ",
+      "paymentRecorded": "ಪಾವತಿ ದಾಖಲಾಗಿದೆ",
+      "deleted": "ಬಾಕಿ ಅಳಿಸಲಾಗಿದೆ"
+    },
+    "errors": {
+      "fetchDues": "ರೈತರ ಬಾಕಿ ಪಡೆಯುವಲ್ಲಿ ದೋಷ",
+      "fetchSummary": "ಬಾಕಿ ಸಾರಾಂಶ ಪಡೆಯುವಲ್ಲಿ ದೋಷ",
+      "addDue": "ಬಾಕಿ ಸೇರಿಸುವಲ್ಲಿ ದೋಷ",
+      "updateDue": "ಬಾಕಿ ನವೀಕರಿಸುವಲ್ಲಿ ದೋಷ",
+      "recordPayment": "ಪಾವತಿ ದಾಖಲಿಸುವಲ್ಲಿ ದೋಷ",
+      "deleteDue": "ಬಾಕಿ ಅಳಿಸುವಲ್ಲಿ ದೋಷ"
+    }
+  },
+  "aiAssistant": {
+    "title": "AI ಸಹಾಯಕ",
+    "subtitle": "ಕನ್ನಡ ಮತ್ತು ಇಂಗ್ಲಿಷ್ ERP ಸಹಾಯಕ",
+    "open": "AI ಸಹಾಯಕ ತೆರೆಯಿರಿ",
+    "close": "ಸಹಾಯಕ ಮುಚ್ಚಿ",
+    "startListening": "ಕೇಳಲು ಪ್ರಾರಂಭಿಸಿ",
+    "stopListening": "ಕೇಳುವುದನ್ನು ನಿಲ್ಲಿಸಿ",
+    "send": "ಕಳುಹಿಸಿ",
+    "inputPlaceholder": "ಬಾಕಿ, ಸ್ಟಾಕ್, ಮಾರಾಟ, ಇನ್ವಾಯ್ಸ್ ಬಗ್ಗೆ ಕೇಳಿ...",
+    "listening": "ಕೇಳುತ್ತಿದೆ...",
+    "recognizing": "ಗುರುತಿಸುತ್ತಿದೆ...",
+    "processing": "ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುತ್ತಿದೆ...",
+    "executing": "ಕಾರ್ಯಗತಗೊಳಿಸುತ್ತಿದೆ...",
+    "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
+    "idle": "ಸಿದ್ಧ",
+    "transcript": "ಮಾತಿನ ಪಠ್ಯ",
+    "detectedIntent": "ಗುರುತಿಸಿದ ಉದ್ದೇಶ",
+    "entities": "ವಿವರಗಳು",
+    "missingFields": "ಬೇಕಾದ ಮಾಹಿತಿ",
+    "unsupportedSpeech": "ಈ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಮಾತು ಗುರುತಿಸುವಿಕೆ ಬೆಂಬಲವಿಲ್ಲ.",
+    "confirmPrompt": "ನೀವು ಖಚಿತವಾಗಿಯೂ ಮುಂದುವರೆಯಬೇಕೇ?",
+    "confirm": "ಖಚಿತಪಡಿಸಿ",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "empty": "ಮೈಕ್ರೋಫೋನ್ ಒತ್ತಿ ಅಥವಾ ವಿನಂತಿ ಟೈಪ್ ಮಾಡಿ.",
+    "thinking": "ಯೋಚಿಸುತ್ತಿದೆ"
   }
 }

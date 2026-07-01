@@ -17,6 +17,7 @@
     "purchases": "Purchases",
     "suppliers": "Suppliers",
     "payments": "Payments",
+    "farmerDues": "Farmer Due Management",
     "reports": "Reports",
     "settings": "Settings",
     "logout": "Logout",
@@ -121,7 +122,11 @@
     "name": "Name",
     "phone": "Phone",
     "city": "City",
-    "email": "Email"
+    "email": "Email",
+    "view": "View",
+    "previous": "Previous",
+    "next": "Next",
+    "logout": "Logout"
   },
   "inventory": {
     "title": "Store Inventory",
@@ -175,5 +180,121 @@
     "searchPlaceholder": "Search purchases...",
     "purchaseNumber": "Purchase #",
     "supplier": "Supplier"
+  },
+  "farmerDues": {
+    "admin": "Admin",
+    "title": "Farmer Due Management",
+    "addDue": "Add Due",
+    "editDue": "Edit Due",
+    "recordPayment": "Record Payment",
+    "savePayment": "Save Payment",
+    "dueDetails": "Due Details",
+    "paymentHistory": "Payment History",
+    "noPayments": "No payments recorded",
+    "empty": "No farmer dues found",
+    "searchPlaceholder": "Search name, phone, village, amount, status, description...",
+    "pagination": "Page {{page}} of {{totalPages}} · {{total}} records",
+    "confirmDeleteTitle": "Delete farmer due",
+    "confirmDeleteDescription": "Delete due record for {{name}}?",
+    "fields": {
+      "farmerName": "Farmer Name",
+      "phoneNumber": "Phone Number",
+      "village": "Village",
+      "dueAmount": "Due Amount",
+      "paidAmount": "Paid Amount",
+      "remainingAmount": "Remaining Amount",
+      "paymentAmount": "Payment Amount",
+      "createdDate": "Created Date",
+      "description": "Description"
+    },
+    "placeholders": {
+      "farmerName": "Farmer name",
+      "phoneNumber": "Phone number",
+      "village": "Village"
+    },
+    "cards": {
+      "totalDueAmount": "Total Due Amount",
+      "totalPendingFarmers": "Total Pending Farmers",
+      "totalPartiallyPaid": "Total Partially Paid",
+      "totalPaidToday": "Total Paid Today"
+    },
+    "status": {
+      "Pending": "Pending",
+      "Partially Paid": "Partially Paid",
+      "Paid": "Paid"
+    },
+    "filters": {
+      "allStatuses": "All Statuses"
+    },
+    "sort": {
+      "latest": "Latest",
+      "oldest": "Oldest",
+      "highestDue": "Highest Due",
+      "lowestDue": "Lowest Due",
+      "farmerNameAZ": "Farmer Name A-Z"
+    },
+    "export": {
+      "csv": "CSV",
+      "excel": "Excel",
+      "print": "Print",
+      "pdf": "PDF Report"
+    },
+    "report": {
+      "listTitle": "Farmer Due List",
+      "pdfTitle": "Farmer Due PDF Report"
+    },
+    "chart": {
+      "pendingVsPaid": "Pending vs Paid Dues",
+      "farmers": "Farmers"
+    },
+    "validation": {
+      "farmerNameRequired": "Farmer name is required",
+      "phoneInvalid": "Phone number must be 10 digits",
+      "villageRequired": "Village is required",
+      "dueAmountPositive": "Due amount must be greater than zero",
+      "dueAmountBelowPaid": "Due amount cannot be less than paid amount",
+      "paymentAmountPositive": "Payment amount must be greater than zero",
+      "paymentExceedsRemaining": "Payment cannot exceed remaining amount"
+    },
+    "toasts": {
+      "added": "Due Added",
+      "updated": "Due Updated",
+      "paymentRecorded": "Payment Recorded",
+      "deleted": "Due Deleted"
+    },
+    "errors": {
+      "fetchDues": "Error fetching farmer dues",
+      "fetchSummary": "Error fetching due summary",
+      "addDue": "Error adding due",
+      "updateDue": "Error updating due",
+      "recordPayment": "Error recording payment",
+      "deleteDue": "Error deleting due"
+    }
+  },
+  "aiAssistant": {
+    "title": "AI Assistant",
+    "subtitle": "Kannada and English ERP helper",
+    "open": "Open AI assistant",
+    "close": "Close assistant",
+    "startListening": "Start listening",
+    "stopListening": "Stop listening",
+    "send": "Send",
+    "inputPlaceholder": "Ask about dues, stock, sales, invoices...",
+    "listening": "Listening...",
+    "recognizing": "Recognizing...",
+    "processing": "Processing...",
+    "executing": "Executing...",
+    "completed": "Completed",
+    "idle": "Ready",
+    "transcript": "Transcript",
+    "detectedIntent": "Detected Intent",
+    "entities": "Entities",
+    "missingFields": "Missing Fields",
+    "unsupportedSpeech": "Speech recognition is not supported in this browser.",
+    "confirmPrompt": "Are you sure you want to continue?",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "empty": "Press the microphone or type a request.",
+    "thinking": "Thinking"
   }
 }

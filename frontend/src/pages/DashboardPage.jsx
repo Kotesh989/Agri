@@ -51,6 +51,7 @@ export const DashboardPage = () => {
 
   const fertilizerSales = Number(stats?.fertilizerSales || 0);
   const pesticideSales = Number(stats?.pesticideSales || 0);
+  const farmerDueSummary = stats?.farmerDueSummary || {};
   const salesMixTotal = Math.max(fertilizerSales + pesticideSales, 1);
   const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
 
@@ -76,6 +77,10 @@ export const DashboardPage = () => {
             <StatCard title="Pending Payments" value={stats?.pendingInvoices || 0} icon={WalletCards} color="red" onClick={() => navigate('/payments?filter=pending')} />
             <StatCard title="Expiring Products" value={stats?.expiringProducts || 0} icon={AlertTriangle} color="yellow" onClick={() => navigate('/products?filter=expiring')} />
             <StatCard title="Total Profit" value={money(stats?.totalProfit)} icon={TrendingUp} color="emerald" onClick={() => navigate('/reports')} />
+            <StatCard title="Total Due Amount" value={money(farmerDueSummary.totalDueAmount)} icon={WalletCards} color="red" onClick={() => navigate('/farmer-dues')} />
+            <StatCard title="Total Pending Farmers" value={farmerDueSummary.totalPendingFarmers || 0} icon={Users} color="yellow" onClick={() => navigate('/farmer-dues?status=Pending')} />
+            <StatCard title="Total Partially Paid" value={farmerDueSummary.totalPartiallyPaid || 0} icon={WalletCards} color="blue" onClick={() => navigate('/farmer-dues?status=Partially%20Paid')} />
+            <StatCard title="Total Paid Today" value={money(farmerDueSummary.totalPaidToday)} icon={DollarSign} color="emerald" onClick={() => navigate('/farmer-dues?status=Paid')} />
             <StatCard title={t('dashboard.fertilizerSales')} value={fertilizerSales} icon={Package} color="emerald" onClick={() => navigate('/invoices')} />
             <StatCard title={t('dashboard.pesticideSales')} value={pesticideSales} icon={FlaskConical} color="yellow" onClick={() => navigate('/invoices')} />
           </div>
@@ -110,6 +115,17 @@ export const DashboardPage = () => {
                 data={{
                   labels: (stats?.paymentStatusChart || []).map((item) => item.status),
                   datasets: [{ data: (stats?.paymentStatusChart || []).map((item) => item.count), backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#64748b'] }],
+                }}
+              />
+            </div>
+
+            <div className="card h-80">
+              <h2 className="mb-4 text-xl font-bold">Pending vs Paid Dues</h2>
+              <Doughnut
+                options={chartOptions}
+                data={{
+                  labels: (farmerDueSummary.statusChart || []).map((item) => item.status),
+                  datasets: [{ data: (farmerDueSummary.statusChart || []).map((item) => item.count), backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'] }],
                 }}
               />
             </div>

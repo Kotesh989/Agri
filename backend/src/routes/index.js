@@ -7,6 +7,8 @@ import * as paymentController from '../controllers/paymentController.js';
 import * as supplierController from '../controllers/supplierController.js';
 import * as purchaseController from '../controllers/purchaseController.js';
 import * as dashboardController from '../controllers/dashboardController.js';
+import * as farmerDueController from '../controllers/farmerDueController.js';
+import * as aiAssistantController from '../controllers/aiAssistantController.js';
 import * as settingsController from '../controllers/settingsController.js';
 import * as farmerController from '../controllers/farmerController.js';
 import * as storeController from '../controllers/storeController.js';
@@ -66,6 +68,18 @@ router.delete('/invoices/:id', authenticate, authorize('ADMIN'), requireStoreAcc
 router.post('/payments', authenticate, authorize('ADMIN'), requireStoreAccess, paymentController.recordPayment);
 router.get('/payments', authenticate, authorize('ADMIN'), requireStoreAccess, paymentController.listPayments);
 router.get('/customers/:customerId/credit', authenticate, authorize('ADMIN'), requireStoreAccess, paymentController.getCustomerCredit);
+
+// ============ AI ASSISTANT ROUTES ============
+router.post('/ai/assistant', authenticate, authorize('ADMIN'), requireStoreAccess, aiAssistantController.handleAssistantRequest);
+
+// ============ FARMER DUE ROUTES ============
+router.post('/farmer-dues', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.createDue);
+router.get('/farmer-dues', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.listDues);
+router.get('/farmer-dues/summary', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.getDueSummary);
+router.get('/farmer-dues/:id', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.getDue);
+router.put('/farmer-dues/:id', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.updateDue);
+router.post('/farmer-dues/:id/payment', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.recordPayment);
+router.delete('/farmer-dues/:id', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.deleteDue);
 
 // ============ SUPPLIER ROUTES ============
 router.post('/suppliers', authenticate, authorize('ADMIN'), requireStoreAccess, supplierController.createSupplier);
