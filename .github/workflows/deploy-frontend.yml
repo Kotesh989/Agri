@@ -1,23 +1,37 @@
-name: Deploy Frontend to Vercel
+name: Deploy Frontend to Render
 
 on:
   push:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'render.yaml'
       - '.github/workflows/deploy-frontend.yml'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend
+      - name: Trigger Render web deploy
+        env:
+          RENDER_FRONTEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+          RENDER_FRONTEND_SERVICE_ID: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
+          RENDER_FRONTEND_DEPLOY_KEY: ${{ secrets.RENDER_FRONTEND_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$RENDER_FRONTEND_DEPLOY_HOOK_URL" ]; then
+            curl --fail --show-error --silent "$RENDER_FRONTEND_DEPLOY_HOOK_URL"
+            exit 0
+          fi
+
+          if [ -n "$RENDER_FRONTEND_SERVICE_ID" ] && [ -n "$RENDER_FRONTEND_DEPLOY_KEY" ]; then
+            curl --fail --show-error --silent "https://api.render.com/deploy/${RENDER_FRONTEND_SERVICE_ID}?key=${RENDER_FRONTEND_DEPLOY_KEY}"
+            exit 0
+          fi
+
+          echo "Missing Render frontend deploy secrets."
+          echo "Set RENDER_FRONTEND_DEPLOY_HOOK_URL, or set RENDER_FRONTEND_SERVICE_ID and RENDER_FRONTEND_DEPLOY_KEY."
+          exit 1
