@@ -530,7 +530,7 @@ export const CustomersPage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.9fr)_minmax(560px,1.2fr)] gap-6">
+          <div className="flex flex-col gap-6">
             <div className="card overflow-x-auto">
               <table className="table min-w-[760px]">
                 <thead>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Bar } from 'react-chartjs-2';
 import {
   BarElement,
@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import {
+  Calendar,
   Clock,
   Download,
   Edit,
@@ -161,6 +162,7 @@ const getDueAge = (createdAt) => {
 export const FarmerDuesPage = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialStatus = statuses.includes(searchParams.get('status')) ? searchParams.get('status') : '';
   const [dues, setDues] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -389,17 +391,11 @@ export const FarmerDuesPage = () => {
 
           <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
             <div className="card">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <div className="relative">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="relative col-span-1 md:col-span-2 xl:col-span-4">
                   <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                   <input className="input pl-10" value={filters.search} onChange={(e) => handleFilterChange('search', e.target.value)} placeholder={t('farmerDues.searchPlaceholder')} />
                 </div>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-                  <input className="input pl-10" value={filters.farmerName} onChange={(e) => handleFilterChange('farmerName', e.target.value)} placeholder={t('farmerDues.placeholders.farmerName')} />
-                </div>
-                <input className="input" value={filters.phoneNumber} onChange={(e) => handleFilterChange('phoneNumber', e.target.value)} placeholder={t('farmerDues.placeholders.phoneNumber')} />
-                <input className="input" value={filters.village} onChange={(e) => handleFilterChange('village', e.target.value)} placeholder={t('farmerDues.placeholders.village')} />
                 <select className="input" value={filters.status} onChange={(e) => handleFilterChange('status', e.target.value)}>
                   {statuses.map((status) => <option key={status || 'all'} value={status}>{status ? t(`farmerDues.status.${status}`) : t('farmerDues.filters.allStatuses')}</option>)}
                 </select>
@@ -495,6 +491,7 @@ export const FarmerDuesPage = () => {
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setViewingDue(due)} title={t('common.view')}><Eye className="h-4 w-4" /></button>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditForm(due)} title={t('common.edit')}><Edit className="h-4 w-4" /></button>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPaymentDue(due); setPaymentAmount(''); }} disabled={Number(due.remainingAmount || 0) <= 0} title={t('farmerDues.recordPayment')}><WalletCards className="h-4 w-4" /></button>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/installment-planner?dueId=${due.id}`)} title="Installment Planner"><Calendar className="h-4 w-4" /></button>
                         {Number(due.remainingAmount || 0) > 0 && (
                           <a
                             href={`https://wa.me/91${due.phoneNumber}?text=${encodeURIComponent(`Dear ${due.farmerName}, you have a pending due of ₹${due.remainingAmount} at our shop. Kindly clear it at your earliest convenience. Thank you.`)}`}

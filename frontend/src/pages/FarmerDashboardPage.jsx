@@ -10,6 +10,7 @@ import { formatCurrency } from '../utils/helpers';
 import { FarmerMobileNav } from '../components/FarmerMobileNav';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
+import { WeatherWidget } from '../components/WeatherWidget';
 
 const money = (value) => formatCurrency(value);
 const date = (value) => (value ? new Date(value).toLocaleDateString('en-IN') : '-');
@@ -45,10 +46,40 @@ export const FarmerDashboardPage = () => {
       <div className="app-content">
         <Navbar />
         <main className="app-main">
-          <div className="page-heading">
-            <span className="eyebrow">{t('nav.dashboard')}</span>
-            <h1 className="text-3xl font-bold">{t('dashboard.farmerTitle')}</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">All shop purchase history linked to your farmer account</p>
+          {/* Welcome Banner */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-800 p-6 text-white shadow-lg mb-8">
+            <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 rounded-full bg-white/5 blur-2xl" />
+            <div className="absolute left-1/3 bottom-0 translate-y-12 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
+            
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span className="bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                  Farmer Hub
+                </span>
+                <h1 className="text-3xl sm:text-4xl font-extrabold mt-3 text-white tracking-tight">
+                  Welcome to {t('app.name')}
+                </h1>
+                <p className="mt-1.5 text-emerald-100 text-sm max-w-xl font-medium">
+                  Review credit dues, analyze weather forecasts for spraying, and lease community machineries.
+                </p>
+              </div>
+
+              {/* Quick Actions Panel */}
+              <div className="flex flex-wrap gap-2.5">
+                <Link 
+                  to="/farmer/stores" 
+                  className="bg-white hover:bg-emerald-50 text-emerald-800 transition-all font-bold px-4 py-2.5 rounded-xl text-xs shadow-md"
+                >
+                  Browse Shops
+                </Link>
+                <Link 
+                  to="/machinery" 
+                  className="bg-teal-500/30 hover:bg-teal-500/40 border border-teal-400/30 text-white transition-all font-bold px-4 py-2.5 rounded-xl text-xs"
+                >
+                  Machinery Hub
+                </Link>
+              </div>
+            </div>
           </div>
 
           {!dashboard && <LoadingSkeleton rows={4} />}
@@ -60,6 +91,10 @@ export const FarmerDashboardPage = () => {
             <StatCard title="Paid" value={money(totals.paid)} icon={CreditCard} color="blue" />
             <StatCard title="Balance" value={money(totals.balance)} icon={CreditCard} color="red" />
           </div>}
+
+          <div className="mb-6">
+            <WeatherWidget />
+          </div>
 
           <div id="stores" className="mb-6">
             <div className="mb-3 flex items-center justify-between">

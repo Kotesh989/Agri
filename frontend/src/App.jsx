@@ -18,6 +18,9 @@ import { FarmerDuesPage } from './pages/FarmerDuesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SalesPage } from './pages/SalesPage';
+import { SoilHealthPage } from './pages/SoilHealthPage';
+import { InstallmentPlannerPage } from './pages/InstallmentPlannerPage';
+import { MachineryHubPage } from './pages/MachineryHubPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { FarmerDashboardPage } from './pages/FarmerDashboardPage';
 import { FarmerCatalogPage } from './pages/FarmerCatalogPage';
@@ -99,6 +102,30 @@ function App() {
                 element={
                   <ProtectedRoute roles={['ADMIN']}>
                     <FarmerDuesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/soil-health"
+                element={
+                  <ProtectedRoute roles={['ADMIN']}>
+                    <SoilHealthPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/installment-planner"
+                element={
+                  <ProtectedRoute roles={['ADMIN']}>
+                    <InstallmentPlannerPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/machinery"
+                element={
+                  <ProtectedRoute roles={['ADMIN', 'FARMER']}>
+                    <MachineryHubPage />
                   </ProtectedRoute>
                 }
               />

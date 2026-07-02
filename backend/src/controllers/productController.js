@@ -6,6 +6,7 @@ import { writeAuditLog } from '../utils/audit.js';
 
 const searchRegex = (value) => new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 const pesticideWeightUnits = ['Gram', 'Kg', 'ML', 'Litre'];
+const weightSupportedCategories = ['FERTILIZER', 'PESTICIDE'];
 
 const categoryAliases = {
   PESTICIDE: 'PESTICIDE',
@@ -39,8 +40,8 @@ const buildProductPayload = (body) => {
     stockQuantity,
     unitType,
     pricePerUnit,
-    pesticideWeight: category === 'PESTICIDE' ? pesticideWeight : undefined,
-    pesticideWeightUnit: category === 'PESTICIDE' ? body.pesticideWeightUnit : undefined,
+    pesticideWeight: weightSupportedCategories.includes(category) ? pesticideWeight : undefined,
+    pesticideWeightUnit: weightSupportedCategories.includes(category) ? body.pesticideWeightUnit : undefined,
     lowStockAlert,
     description: body.description,
     packSize: body.packSize,
@@ -74,12 +75,12 @@ const validateProductPayload = (payload) => {
   if (!validGstRates.has(Number(payload.gstRate))) return 'GST rate must be 0, 5, 12, 18, or 28';
   if (!isValidDateValue(payload.expiryDate)) return 'Expiry date must be valid';
   if (!Number.isFinite(payload.lowStockAlert) || payload.lowStockAlert < 0) return 'Low stock alert must be zero or greater';
-  if (payload.category === 'PESTICIDE') {
+  if (weightSupportedCategories.includes(payload.category)) {
     if (payload.pesticideWeight !== undefined && (!Number.isFinite(payload.pesticideWeight) || payload.pesticideWeight <= 0)) {
-      return 'Pesticide weight must be greater than zero';
+      return 'Weight must be greater than zero';
     }
     if (payload.pesticideWeight !== undefined && !pesticideWeightUnits.includes(payload.pesticideWeightUnit)) {
-      return 'Valid pesticide weight unit is required';
+      return 'Valid weight unit is required';
     }
   }
   return null;
@@ -159,7 +160,7 @@ export const updateProduct = async (req, res) => {
     }
     const previousStock = Number(product.stockQuantity ?? product.currentStock ?? 0);
     Object.assign(product, payload);
-    if (payload.category !== 'PESTICIDE') {
+    if (!weightSupportedCategories.includes(payload.category)) {
       product.pesticideWeight = undefined;
       product.pesticideWeightUnit = undefined;
     }

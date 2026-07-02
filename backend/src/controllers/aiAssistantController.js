@@ -41,6 +41,68 @@ export const fallbackIntentForTranscript = (transcript) => {
   const normalized = normalizeText(transcript);
   const lower = normalized.replace(/\s+/g, ' ');
 
+  // 1. NAVIGATE / OPEN pages
+  if (/open|navigate|go to|ಕರೆ|ತೆರೆ|ಹೋಗು/i.test(lower)) {
+    let route = '/dashboard';
+    let reply = 'Opening dashboard.';
+    if (/due|dues|format de|de management|ಬಾಕಿ/i.test(lower)) {
+      route = '/farmer-dues';
+      reply = 'Opening farmer dues management.';
+    } else if (/customer|farmer|client|ಗ್ರಾಹಕ|ರೈತ/i.test(lower)) {
+      route = '/customers';
+      reply = 'Opening customer management.';
+    } else if (/product|inventory|stock|ಉತ್ಪನ್ನ|ಸ್ಟಾಕ್/i.test(lower)) {
+      route = '/products';
+      reply = 'Opening inventory.';
+    } else if (/sale|sales|invoice|ಮಾರಾಟ/i.test(lower)) {
+      route = '/sales';
+      reply = 'Opening sales page.';
+    } else if (/report|analytics|ವರದಿ/i.test(lower)) {
+      route = '/reports';
+      reply = 'Opening reports page.';
+    } else if (/setting|ಸಂರಚನೆ/i.test(lower)) {
+      route = '/settings';
+      reply = 'Opening settings.';
+    } else if (/payment|ಪಾವತಿ/i.test(lower)) {
+      route = '/payments';
+      reply = 'Opening payments page.';
+    }
+
+    return {
+      intent: 'NAVIGATE',
+      entities: { route },
+      missingFields: [],
+      confidence: 0.85,
+      requiresConfirmation: false,
+      reply,
+    };
+  }
+
+  // 2. TODAY_SALES
+  if (/today.*sales|sales.*today|ಇಂದಿನ ಮಾರಾಟ|ಇವತ್ತಿನ ಸೇಲ್ಸ್/i.test(lower)) {
+    return {
+      intent: 'TODAY_SALES',
+      entities: {},
+      missingFields: [],
+      confidence: 0.85,
+      requiresConfirmation: false,
+      reply: "Fetching today's sales summary.",
+    };
+  }
+
+  // 3. LOW_STOCK
+  if (/low.*stock|stock.*low|minimum.*stock|ಕಡಿಮೆ ಸ್ಟಾಕ್|ಸ್ಟಾಕ್ ಕಡಿಮೆ/i.test(lower)) {
+    return {
+      intent: 'LOW_STOCK',
+      entities: {},
+      missingFields: [],
+      confidence: 0.85,
+      requiresConfirmation: false,
+      reply: 'Checking low stock items in inventory.',
+    };
+  }
+
+  // 4. CLEAR_DUE
   if (/clear|cliear|close|ಮುಗಿಸ|ಕ್ಲಿಯರ್|ಪಾವತ/i.test(lower)) {
     const rawTokens = transcript
       .replace(/(?:please|kindly|pls|plz)\s+/gi, '')
@@ -54,10 +116,47 @@ export const fallbackIntentForTranscript = (transcript) => {
       missingFields: farmerName === 'unknown' ? ['farmerName'] : [],
       confidence: 0.7,
       requiresConfirmation: true,
-      reply: 'I can clear the due once you confirm.',
+      reply: `I can clear the due for ${farmerName} once you confirm.`,
     };
   }
 
+  // 5. SEARCH_FARMER / customer
+  if (/customer|farmer|ಗ್ರಾಹಕ|ರೈತ/i.test(lower) && !/due/i.test(lower)) {
+    const rawTokens = transcript
+      .replace(/(?:please|kindly|pls|plz)\s+/gi, '')
+      .replace(/(?:show|search|find|customer|farmer|client|ಗ್ರಾಹಕ|ರೈತ|ಹುಡುಕಿ|ತೋರಿಸು|for|the)\s+/gi, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    const farmerName = rawTokens.find((token) => token.length > 1);
+    return {
+      intent: 'SEARCH_FARMER',
+      entities: farmerName ? { farmerName: farmerName.trim() } : {},
+      missingFields: [],
+      confidence: 0.75,
+      requiresConfirmation: false,
+      reply: farmerName ? `Searching for farmer ${farmerName}.` : 'Searching customer records.',
+    };
+  }
+
+  // 6. SEARCH_PRODUCT / stock for something
+  if (/product|stock|ಉತ್ಪನ್ನ|ಸ್ಟಾಕ್|ಯೂರಿಯಾ|dap|urea|ದಾಪ/i.test(lower)) {
+    const rawTokens = transcript
+      .replace(/(?:please|kindly|pls|plz)\s+/gi, '')
+      .replace(/(?:show|search|find|product|stock|inventory|ಉತ್ಪನ್ನ|ಸ್ಟಾಕ್|ಹುಡುಕಿ|ತೋರಿಸು|for|the|of|is|what|are|items|item|in|at)\s+/gi, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 1);
+    const productName = rawTokens.length > 0 ? rawTokens[0].trim() : '';
+    return {
+      intent: 'SEARCH_PRODUCT',
+      entities: productName ? { productName } : {},
+      missingFields: [],
+      confidence: 0.75,
+      requiresConfirmation: false,
+      reply: productName ? `Searching stock for ${productName}.` : 'Searching product inventory.',
+    };
+  }
+
+  // 7. SEARCH_DUES / pending / ಬಾಕಿ
   if (/pending|ಬಾಕಿ|dues|due|unpaid|ಪಾವತಿ|ಪಾವತಿಸ|show|ಹುಡುಕಿ|search/i.test(lower)) {
     const villageMatch = lower.match(/(?:from|in|ಗ್ರಾಮ|ದೇಶ|ಮೈಸೂರು|mysuru|ಮೈಸೂರು Stadt|ಮೈಸೂರು)/i);
     const statusMatch = lower.match(/pending|paid|partially|ಬಾಕಿ|ಪಾವತಿಸಲಾಗಿದೆ|ಭಾಗಶಃ/i);
@@ -71,17 +170,6 @@ export const fallbackIntentForTranscript = (transcript) => {
       confidence: 0.68,
       requiresConfirmation: false,
       reply: 'I will look up the matching dues.',
-    };
-  }
-
-  if (/product|stock|ಉತ್ಪನ್ನ|ಸ್ಟಾಕ್|ಯೂರಿಯಾ|dap|urea|ದಾಪ/i.test(lower)) {
-    return {
-      intent: 'SEARCH_PRODUCT',
-      entities: { productName: lower },
-      missingFields: [],
-      confidence: 0.65,
-      requiresConfirmation: false,
-      reply: 'I will search the product inventory.',
     };
   }
 
@@ -118,14 +206,7 @@ JSON shape:
 const callLlm = async ({ transcript, conversation = [] }) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.LLM_API_KEY;
   if (!apiKey) {
-    return {
-      intent: 'UNKNOWN',
-      entities: {},
-      missingFields: [],
-      confidence: 0,
-      requiresConfirmation: false,
-      reply: 'AI service is not configured. Please set a Gemini or OpenAI API key.',
-    };
+    return fallbackIntentForTranscript(transcript);
   }
 
   const provider = process.env.AI_PROVIDER || 'gemini';

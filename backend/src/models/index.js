@@ -301,6 +301,13 @@ const farmerDuePaymentSchema = new Schema({
   notes: { type: String, trim: true },
 }, { _id: true, toJSON: baseOptions.toJSON, toObject: baseOptions.toObject });
 
+const farmerDueInstallmentSchema = new Schema({
+  dueDate: { type: Date, required: true },
+  amount: { type: Number, required: true },
+  status: { type: String, enum: ['Pending', 'Paid'], default: 'Pending' },
+  paidAmount: { type: Number, default: 0 },
+}, { _id: true, toJSON: baseOptions.toJSON, toObject: baseOptions.toObject });
+
 const farmerDueSchema = new Schema({
   adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
@@ -318,9 +325,11 @@ const farmerDueSchema = new Schema({
   dueAmount: { type: Number, required: true, min: 0.01 },
   description: { type: String, trim: true },
   status: { type: String, enum: ['Pending', 'Partially Paid', 'Paid'], default: 'Pending', index: true },
+  dueDate: { type: Date },
   paidAmount: { type: Number, default: 0, min: 0 },
   remainingAmount: { type: Number, default: 0, min: 0 },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  installments: [farmerDueInstallmentSchema],
   paymentHistory: [farmerDuePaymentSchema],
 }, baseOptions);
 
@@ -486,6 +495,64 @@ const auditLogSchema = new Schema({
 
 auditLogSchema.index({ adminId: 1, storeId: 1, createdAt: -1 });
 
+const soilHealthCardSchema = new Schema({
+  adminId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', index: true },
+  farmerUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+  nitrogen: Number,
+  phosphorus: Number,
+  potassium: Number,
+  organicCarbon: Number,
+  pH: Number,
+  micronutrients: Schema.Types.Mixed,
+  crop: { type: String, required: true },
+  acreage: { type: Number, required: true, default: 1 },
+  soilType: String,
+  recommendations: Schema.Types.Mixed,
+}, baseOptions);
+
+soilHealthCardSchema.index({ adminId: 1, storeId: 1, customerId: 1, createdAt: -1 });
+
+const machinerySchema = new Schema({
+  ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  name: { type: String, required: true, trim: true },
+  type: { type: String, required: true, enum: ['Tractor', 'Power tiller', 'Rotavator', 'Drone sprayer', 'Seed drill', 'Harvester', 'Water pump'] },
+  rentalPricePerDay: { type: Number, required: true, min: 0 },
+  description: String,
+  image: String,
+  location: String,
+  availability: [
+    {
+      startDate: Date,
+      endDate: Date,
+    }
+  ],
+  ratings: [
+    {
+      renterId: { type: Schema.Types.ObjectId, ref: 'User' },
+      rating: { type: Number, required: true, min: 1, max: 5 },
+      comment: String,
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
+  averageRating: { type: Number, default: 5 },
+}, baseOptions);
+
+machinerySchema.index({ type: 1, rentalPricePerDay: 1 });
+
+const machineryBookingSchema = new Schema({
+  machineryId: { type: Schema.Types.ObjectId, ref: 'Machinery', required: true, index: true },
+  renterId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  totalAmount: { type: Number, required: true },
+  status: { type: String, enum: ['Pending', 'Approved', 'Rejected', 'Completed'], default: 'Pending', index: true },
+  notes: String,
+}, baseOptions);
+
+machineryBookingSchema.index({ machineryId: 1, status: 1 });
+
 export const User = mongoose.model('User', userSchema);
 export const PasswordResetOtp = mongoose.model('PasswordResetOtp', passwordResetOtpSchema);
 export const FarmerAuthOtp = mongoose.model('FarmerAuthOtp', farmerAuthOtpSchema);
@@ -507,3 +574,6 @@ export const StockAlert = mongoose.model('StockAlert', stockAlertSchema);
 export const Backup = mongoose.model('Backup', backupSchema);
 export const StockMovement = mongoose.model('StockMovement', stockMovementSchema);
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
+export const SoilHealthCard = mongoose.model('SoilHealthCard', soilHealthCardSchema);
+export const Machinery = mongoose.model('Machinery', machinerySchema);
+export const MachineryBooking = mongoose.model('MachineryBooking', machineryBookingSchema);

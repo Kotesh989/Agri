@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Menu, LogOut, Sun, Moon, BarChart3, User, Languages } from 'lucide-react';
-import { useState } from 'react';
+import { Menu, LogOut, Sun, Moon, BarChart3, User, Languages, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useConfirm } from './ConfirmProvider';
 import { useNotificationContext } from './Notification';
@@ -11,10 +11,13 @@ const adminLinks = [
   { labelKey: 'nav.dashboard', path: '/dashboard' },
   { labelKey: 'nav.inventory', path: '/products' },
   { labelKey: 'nav.customers', path: '/customers' },
+  { labelKey: 'nav.soilHealth', path: '/soil-health' },
+  { labelKey: 'nav.machinery', path: '/machinery' },
   { labelKey: 'nav.sales', path: '/sales' },
   { labelKey: 'nav.purchases', path: '/purchases' },
   { labelKey: 'nav.suppliers', path: '/suppliers' },
   { labelKey: 'nav.payments', path: '/payments' },
+  { labelKey: 'nav.farmerDues', path: '/farmer-dues' },
   { labelKey: 'nav.reports', path: '/reports' },
   { labelKey: 'nav.settings', path: '/settings' },
 ];
@@ -22,6 +25,7 @@ const adminLinks = [
 const farmerLinks = [
   { labelKey: 'nav.farmerDashboard', path: '/farmer/dashboard' },
   { labelKey: 'nav.shops', path: '/farmer/stores' },
+  { labelKey: 'nav.machinery', path: '/machinery' },
 ];
 
 export const Navbar = () => {
@@ -30,6 +34,44 @@ export const Navbar = () => {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const { t, i18n } = useTranslation();
+
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [queueLength, setQueueLength] = useState(0);
+
+  useEffect(() => {
+    const updateQueueInfo = () => {
+      import('../services/offlineService').then(({ getOfflineQueue }) => {
+        setQueueLength(getOfflineQueue().length);
+      });
+    };
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setSyncStatus('Syncing changes...');
+      import('../services/offlineService').then(({ syncOfflineData }) => {
+        syncOfflineData((progress) => {
+          setSyncStatus(progress);
+          updateQueueInfo();
+        });
+      });
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncStatus('Offline mode active');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    updateQueueInfo();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const { confirm } = useConfirm();
   const { showInfo } = useNotificationContext();
@@ -60,6 +102,26 @@ export const Navbar = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* Online/Offline Status Indicator */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-gray-800 bg-white dark:bg-[#151d19] text-xs shadow-sm font-semibold">
+            {isOnline ? (
+              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <Wifi className="w-4 h-4 text-emerald-500" />
+                <span>Online</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                <WifiOff className="w-4 h-4 text-rose-500" />
+                <span>Offline {queueLength > 0 && `(${queueLength} pending)`}</span>
+              </span>
+            )}
+            {syncStatus && (
+              <span className="hidden sm:inline text-[10px] text-gray-500 font-normal border-l border-slate-200 pl-2">
+                {syncStatus}
+              </span>
+            )}
+          </div>
+
           <label className="hidden cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm shadow-sm transition-all duration-200 hover:border-emerald-300 dark:border-gray-700 dark:bg-[#151d19] sm:flex">
             <Languages className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             <span className="sr-only">{t('app.language')}</span>

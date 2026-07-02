@@ -12,6 +12,8 @@ import {
   Settings,
   ChevronRight,
   Store,
+  FlaskConical,
+  Wrench,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +23,8 @@ const menuItems = [
   { labelKey: 'nav.dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { labelKey: 'nav.inventory', icon: Package, path: '/products' },
   { labelKey: 'nav.customers', icon: Users, path: '/customers' },
+  { labelKey: 'nav.soilHealth', icon: FlaskConical, path: '/soil-health' },
+  { labelKey: 'nav.machinery', icon: Wrench, path: '/machinery' },
   { labelKey: 'nav.sales', icon: ShoppingCart, path: '/sales' },
   { labelKey: 'nav.purchases', icon: Truck, path: '/purchases' },
   { labelKey: 'nav.suppliers', icon: Truck, path: '/suppliers' },
@@ -33,6 +37,7 @@ const menuItems = [
 const farmerMenuItems = [
   { labelKey: 'nav.farmerDashboard', icon: LayoutDashboard, path: '/farmer/dashboard' },
   { labelKey: 'nav.shops', icon: Store, path: '/farmer/stores' },
+  { labelKey: 'nav.machinery', icon: Wrench, path: '/machinery' },
 ];
 
 export const Sidebar = () => {

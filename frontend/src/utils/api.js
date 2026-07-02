@@ -30,12 +30,31 @@ api.interceptors.request.use((config) => {
 // Handle response errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
-    error.userMessage = getApiErrorMessage(error);
+    
+    // Catch offline write requests
+    if (
+      !error.response && 
+      typeof navigator !== 'undefined' && 
+      navigator.onLine === false && 
+      error.config && 
+      ['post', 'put', 'delete', 'patch'].includes(error.config.method?.toLowerCase())
+    ) {
+      try {
+        const { queueOfflineMutation } = await import('../services/offlineService');
+        const data = typeof error.config.data === 'string' ? JSON.parse(error.config.data) : error.config.data;
+        queueOfflineMutation(error.config.url, error.config.method, data);
+        error.userMessage = 'You are offline. Your change was queued locally and will sync when connection returns.';
+      } catch (err) {
+        console.error('Error queueing offline request:', err);
+      }
+    }
+
+    error.userMessage = error.userMessage || getApiErrorMessage(error);
     return Promise.reject(error);
   }
 );

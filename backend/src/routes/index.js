@@ -14,6 +14,10 @@ import * as farmerController from '../controllers/farmerController.js';
 import * as storeController from '../controllers/storeController.js';
 import * as notificationController from '../controllers/notificationController.js';
 import * as uploadController from '../controllers/uploadController.js';
+import * as weatherController from '../controllers/weatherController.js';
+import * as soilController from '../controllers/soilController.js';
+import * as cropDiseaseController from '../controllers/cropDiseaseController.js';
+import * as machineryController from '../controllers/machineryController.js';
 import { authenticate, authorize, requireStoreAccess } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -72,6 +76,13 @@ router.get('/customers/:customerId/credit', authenticate, authorize('ADMIN'), re
 // ============ AI ASSISTANT ROUTES ============
 router.post('/ai/assistant', authenticate, authorize('ADMIN'), requireStoreAccess, aiAssistantController.handleAssistantRequest);
 
+// ============ WEATHER ROUTES ============
+router.get('/weather/forecast', authenticate, weatherController.getWeatherAdvisory);
+
+// ============ SOIL HEALTH ROUTES ============
+router.post('/soil-health', authenticate, requireStoreAccess, soilController.calculateRecommendations);
+router.get('/soil-health/:customerId/history', authenticate, requireStoreAccess, soilController.getCustomerHistory);
+
 // ============ FARMER DUE ROUTES ============
 router.post('/farmer-dues', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.createDue);
 router.get('/farmer-dues', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.listDues);
@@ -79,7 +90,17 @@ router.get('/farmer-dues/summary', authenticate, authorize('ADMIN'), requireStor
 router.get('/farmer-dues/:id', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.getDue);
 router.put('/farmer-dues/:id', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.updateDue);
 router.post('/farmer-dues/:id/payment', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.recordPayment);
+router.post('/farmer-dues/:id/installments', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.saveInstallmentsPlan);
+router.post('/farmer-dues/:id/installments/:installmentId/pay', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.payInstallment);
 router.delete('/farmer-dues/:id', authenticate, authorize('ADMIN'), requireStoreAccess, farmerDueController.deleteDue);
+
+// ============ MACHINERY RENTAL ROUTES ============
+router.get('/machinery', authenticate, machineryController.listMachinery);
+router.post('/machinery', authenticate, machineryController.createMachinery);
+router.post('/machinery/bookings', authenticate, machineryController.createBooking);
+router.patch('/machinery/bookings/:id/status', authenticate, machineryController.updateBookingStatus);
+router.get('/machinery/bookings', authenticate, machineryController.listBookings);
+router.post('/machinery/bookings/:id/reviews', authenticate, machineryController.addReview);
 
 // ============ SUPPLIER ROUTES ============
 router.post('/suppliers', authenticate, authorize('ADMIN'), requireStoreAccess, supplierController.createSupplier);

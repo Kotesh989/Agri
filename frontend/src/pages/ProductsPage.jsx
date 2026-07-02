@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Edit2, Plus, Search, Trash2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
@@ -111,8 +111,8 @@ export const ProductsPage = () => {
       gstRate: Number(formData.gstRate),
       batchNumber: formData.batchNumber || undefined,
       expiryDate: formData.expiryDate || undefined,
-      pesticideWeight: formData.category === 'PESTICIDE' && formData.pesticideWeight ? Number(formData.pesticideWeight) : undefined,
-      pesticideWeightUnit: formData.category === 'PESTICIDE' ? formData.pesticideWeightUnit : undefined,
+      pesticideWeight: (formData.category === 'PESTICIDE' || formData.category === 'FERTILIZER') && formData.pesticideWeight ? Number(formData.pesticideWeight) : undefined,
+      pesticideWeightUnit: (formData.category === 'PESTICIDE' || formData.category === 'FERTILIZER') ? formData.pesticideWeightUnit : undefined,
     };
 
     try {
@@ -241,7 +241,10 @@ export const ProductsPage = () => {
                     <tr key={product.id} className={isLowStock ? 'bg-red-50 dark:bg-red-950/20' : ''}>
                       <td>
                         <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-gray-500">{product.brandName || product.brand || ''}</div>
+                        <div className="text-xs text-gray-500">
+                          {product.brandName || product.brand || ''}
+                          {product.pesticideWeight ? ` • ${product.pesticideWeight} ${product.pesticideWeightUnit}` : ''}
+                        </div>
                       </td>
                       <td>{product.category}</td>
                       <td className={isLowStock ? 'text-red-600 dark:text-red-400' : 'font-semibold'}>{stockQuantity}</td>
@@ -386,10 +389,12 @@ export const ProductsPage = () => {
                 </select>
               </div>
 
-              {formData.category === 'PESTICIDE' && (
+              {(formData.category === 'PESTICIDE' || formData.category === 'FERTILIZER') && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Pesticide Weight</label>
+                    <label className="block text-sm font-medium mb-1">
+                      {formData.category === 'FERTILIZER' ? 'Bag Weight' : 'Pesticide Weight'}
+                    </label>
                     <input
                       type="number"
                       min="0.01"

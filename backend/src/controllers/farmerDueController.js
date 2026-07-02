@@ -26,6 +26,7 @@ const normalizeDuePayload = (body) => ({
   village: String(body.village || '').trim(),
   dueAmount: Number(body.dueAmount || 0),
   description: String(body.description || '').trim(),
+  dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
 });
 
 const validateDuePayload = (payload) => {
@@ -318,5 +319,82 @@ export const getDueSummary = async (req, res) => {
     if (ownershipResponse) return ownershipResponse;
     console.error('Get farmer due summary error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const saveInstallmentsPlan = async (req, res) => {
+  try {
+    const due = await ownedDocument(FarmerDue, req, req.params.id);
+    if (!due) return res.status(404).json({ success: false, message: 'Due not found' });
+
+    const { installments } = req.body;
+    if (!Array.isArray(installments) || installments.length === 0) {
+      return validationError(res, 'An array of installments is required.');
+    }
+
+    const totalPlanned = installments.reduce((sum, inst) => sum + Number(inst.amount), 0);
+    if (Math.abs(totalPlanned - due.dueAmount) > 0.05) {
+      return validationError(res, `Total planned installment amount (${totalPlanned}) must match the overall due amount (${due.dueAmount})`);
+    }
+
+    due.installments = installments.map((inst) => ({
+      dueDate: new Date(inst.dueDate),
+      amount: Number(inst.amount),
+      status: 'Pending',
+      paidAmount: 0,
+    }));
+
+    await due.save();
+    res.json({ success: true, message: 'Installment plan saved successfully', data: due });
+  } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
+    console.error('Save installments plan error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+  }
+};
+
+export const payInstallment = async (req, res) => {
+  try {
+    const due = await ownedDocument(FarmerDue, req, req.params.id);
+    if (!due) return res.status(404).json({ success: false, message: 'Due not found' });
+
+    const { installmentId } = req.params;
+    const paymentAmount = Number(req.body.paymentAmount || 0);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      return validationError(res, 'Payment amount must be greater than zero');
+    }
+
+    const inst = due.installments.id(installmentId);
+    if (!inst) {
+      return res.status(404).json({ success: false, message: 'Installment not found' });
+    }
+
+    const instRemaining = Number((inst.amount - inst.paidAmount).toFixed(2));
+    if (paymentAmount > instRemaining) {
+      return validationError(res, `Payment amount (${paymentAmount}) exceeds installment remaining amount (${instRemaining})`);
+    }
+
+    inst.paidAmount = Number((inst.paidAmount + paymentAmount).toFixed(2));
+    if (inst.paidAmount >= inst.amount) {
+      inst.status = 'Paid';
+    }
+
+    due.paidAmount = Number((Number(due.paidAmount || 0) + paymentAmount).toFixed(2));
+    due.paymentHistory.push({
+      amount: paymentAmount,
+      paymentDate: new Date(),
+      recordedBy: getRequestAdminId(req),
+      paymentMethod: req.body.paymentMethod || 'UPI',
+      notes: String(req.body.notes || `Installment payment`).trim(),
+    });
+
+    await due.save();
+    res.json({ success: true, message: 'Installment payment recorded successfully', data: due });
+  } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
+    console.error('Pay installment error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
