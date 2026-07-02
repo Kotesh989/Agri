@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
 
+export class OwnershipError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'OwnershipError';
+    this.statusCode = 403;
+  }
+}
+
 export const getRequestAdminId = (req) => {
   if (req.user?.role === 'ADMIN') return req.user.userId;
   return req.user?.adminId || req.user?.userId;
@@ -9,17 +17,17 @@ export const getRequestStoreId = (req) => req.storeId || req.headers?.['x-store-
 
 export const getOwnerFilter = (req, extra = {}) => {
   const adminId = getRequestAdminId(req);
-  if (!adminId) throw new Error('Admin ownership context is missing');
+  if (!adminId) throw new OwnershipError('Admin ownership context is missing');
   const storeId = getRequestStoreId(req);
-  if (!storeId) throw new Error('Store ownership context is missing');
+  if (!storeId) throw new OwnershipError('Store ownership context is missing');
   return { ...extra, adminId, storeId };
 };
 
 export const getOwnerMatch = (req, extra = {}) => {
   const adminId = getRequestAdminId(req);
-  if (!adminId) throw new Error('Admin ownership context is missing');
+  if (!adminId) throw new OwnershipError('Admin ownership context is missing');
   const storeId = getRequestStoreId(req);
-  if (!storeId) throw new Error('Store ownership context is missing');
+  if (!storeId) throw new OwnershipError('Store ownership context is missing');
   return {
     ...extra,
     adminId: mongoose.Types.ObjectId.isValid(adminId) ? new mongoose.Types.ObjectId(adminId) : adminId,

@@ -26,6 +26,15 @@ const FRONTEND_URLS = Array.from(new Set([...configuredFrontendUrls, ...defaultF
 
 // Middleware
 app.set('trust proxy', 1);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || FRONTEND_URLS.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
+  credentials: true,
+}));
 app.use(helmet());
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -44,15 +53,6 @@ app.use('/api/auth/farmer/otp', rateLimit({
   limit: Number(process.env.OTP_RATE_LIMIT_MAX || 5),
   standardHeaders: true,
   legacyHeaders: false,
-}));
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || FRONTEND_URLS.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
-  },
-  credentials: true,
 }));
 
 app.use(express.json());

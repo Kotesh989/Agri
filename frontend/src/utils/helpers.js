@@ -10,7 +10,10 @@ export const formatCurrency = (value) => {
 
 // Format date
 export const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('en-IN', {
+  if (!date) return '-';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('en-IN', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

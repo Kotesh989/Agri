@@ -1,7 +1,14 @@
 import { FarmerDue } from '../models/index.js';
 import { validationError } from '../utils/http.js';
-import { getOwnerFilter, getOwnerMatch, getRequestAdminId, getRequestStoreId, ownedDocument } from '../utils/ownership.js';
+import { getOwnerFilter, getOwnerMatch, getRequestAdminId, getRequestStoreId, ownedDocument, OwnershipError } from '../utils/ownership.js';
 import { isTenDigitPhone } from '../utils/validators.js';
+
+const handleOwnershipError = (res, error) => {
+  if (error instanceof OwnershipError) {
+    return res.status(403).json({ success: false, message: 'Store access is required. Please refresh and try again.' });
+  }
+  return null;
+};
 
 const escapeRegex = (value) => String(value || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const VALID_STATUSES = ['Pending', 'Partially Paid', 'Paid'];
@@ -109,6 +116,18 @@ export const listDueRecords = async (req) => {
 
 export const getDueSummaryData = async (req) => {
   const ownerMatch = getOwnerMatch(req);
+
+  const { status, startDate, endDate } = req.query || {};
+  if (status && VALID_STATUSES.includes(status)) ownerMatch.status = status;
+  if (startDate || endDate) {
+    ownerMatch.createdAt = {};
+    if (startDate) ownerMatch.createdAt.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      ownerMatch.createdAt.$lte = end;
+    }
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -200,6 +219,8 @@ export const recordDuePayment = async (req) => {
     amount: paymentAmount,
     paymentDate: new Date(),
     recordedBy: getRequestAdminId(req),
+    paymentMethod: req.body.paymentMethod || 'Cash',
+    notes: String(req.body.notes || '').trim(),
   });
   await due.save();
   return due;
@@ -216,6 +237,8 @@ export const createDue = async (req, res) => {
     const due = await createDueRecord(req);
     res.status(201).json({ success: true, message: 'Due added successfully', data: due });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('Create farmer due error:', error);
     if (error.message === 'Due not found') return res.status(404).json({ success: false, message: error.message });
     return validationError(res, error.message || 'Internal server error');
@@ -227,6 +250,8 @@ export const listDues = async (req, res) => {
     const { dues, pagination } = await listDueRecords(req);
     res.json({ success: true, data: dues, pagination });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('List farmer dues error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
@@ -238,6 +263,8 @@ export const getDue = async (req, res) => {
     if (!due) return res.status(404).json({ success: false, message: 'Due not found' });
     res.json({ success: true, data: due });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('Get farmer due error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
@@ -248,6 +275,8 @@ export const updateDue = async (req, res) => {
     const due = await updateDueRecord(req);
     res.json({ success: true, message: 'Due updated successfully', data: due });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('Update farmer due error:', error);
     if (error.message === 'Due not found') return res.status(404).json({ success: false, message: error.message });
     return validationError(res, error.message || 'Internal server error');
@@ -259,6 +288,8 @@ export const recordPayment = async (req, res) => {
     const due = await recordDuePayment(req);
     res.json({ success: true, message: 'Payment recorded successfully', data: due });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('Record farmer due payment error:', error);
     if (error.message === 'Due not found') return res.status(404).json({ success: false, message: error.message });
     return validationError(res, error.message || 'Internal server error');
@@ -270,6 +301,8 @@ export const deleteDue = async (req, res) => {
     await deleteDueRecord(req);
     res.json({ success: true, message: 'Due deleted successfully' });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('Delete farmer due error:', error);
     if (error.message === 'Due not found') return res.status(404).json({ success: false, message: error.message });
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -281,6 +314,8 @@ export const getDueSummary = async (req, res) => {
     const data = await getDueSummaryData(req);
     res.json({ success: true, data });
   } catch (error) {
+    const ownershipResponse = handleOwnershipError(res, error);
+    if (ownershipResponse) return ownershipResponse;
     console.error('Get farmer due summary error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }

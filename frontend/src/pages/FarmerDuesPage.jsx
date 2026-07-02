@@ -10,17 +10,21 @@ import {
   Tooltip,
 } from 'chart.js';
 import {
+  Clock,
   Download,
   Edit,
   Eye,
   FileDown,
   FileSpreadsheet,
+  MessageCircle,
   Plus,
   Printer,
   Search,
   Trash2,
   WalletCards,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { Navbar } from '../components/Navbar';
 import { Sidebar } from '../components/Sidebar';
 import { Modal } from '../components/Modal';
@@ -51,6 +55,14 @@ const statusBadge = (status) => {
   if (status === 'Partially Paid') return 'badge badge-blue';
   return 'badge badge-yellow';
 };
+
+const STATUS_COLORS = {
+  Pending: '#f59e0b',
+  'Partially Paid': '#3b82f6',
+  Paid: '#10b981',
+};
+
+const PAYMENT_METHODS = ['Cash', 'UPI', 'Cheque', 'Bank Transfer', 'Other'];
 
 const buildExportRows = (dues, t) => dues.map((due) => ({
   [t('farmerDues.fields.farmerName')]: due.farmerName,
@@ -121,6 +133,31 @@ const openPrintReport = (dues, title, t) => {
   printWindow.print();
 };
 
+const downloadPdf = (rows, title) => {
+  const doc = new jsPDF({ orientation: 'landscape' });
+  doc.setFontSize(16);
+  doc.text(title, 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 22);
+  const headers = Object.keys(rows[0] || {});
+  doc.autoTable({
+    startY: 28,
+    head: [headers],
+    body: rows.map((row) => headers.map((h) => row[h])),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [16, 185, 129] },
+  });
+  doc.save(`farmer-dues-${new Date().toISOString().slice(0, 10)}.pdf`);
+};
+
+const getDueAge = (createdAt) => {
+  const days = Math.floor((Date.now() - new Date(createdAt)) / (1000 * 60 * 60 * 24));
+  if (days <= 7) return { label: 'New', className: 'badge badge-green' };
+  if (days <= 30) return { label: `${days}d`, className: 'badge badge-yellow' };
+  if (days <= 90) return { label: `${days}d`, className: 'badge badge-orange' };
+  return { label: `${days}d ⚠️`, className: 'badge badge-red' };
+};
+
 export const FarmerDuesPage = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -146,6 +183,9 @@ export const FarmerDuesPage = () => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentNotes, setPaymentNotes] = useState('');
   const { addNotification } = useNotificationContext();
   const { confirm } = useConfirm();
   const debouncedFilters = useDebounce(filters, 400);
@@ -162,7 +202,7 @@ export const FarmerDuesPage = () => {
 
   useEffect(() => {
     fetchSummary();
-  }, []);
+  }, [debouncedFilters]);
 
   const fetchDues = async () => {
     try {
@@ -179,11 +219,36 @@ export const FarmerDuesPage = () => {
 
   const fetchSummary = async () => {
     try {
-      const response = await api.get('/farmer-dues/summary');
+      const params = {};
+      if (debouncedFilters.startDate) params.startDate = debouncedFilters.startDate;
+      if (debouncedFilters.endDate) params.endDate = debouncedFilters.endDate;
+      if (debouncedFilters.status) params.status = debouncedFilters.status;
+      const response = await api.get('/farmer-dues/summary', { params });
       setSummary(response.data.data);
     } catch (error) {
       showError(error, t('farmerDues.errors.fetchSummary'));
     }
+  };
+
+  const fetchAllForExport = async () => {
+    try {
+      setExporting(true);
+      const params = { ...Object.fromEntries(Object.entries(debouncedFilters).filter(([, v]) => v)), page: 1, limit: 1000 };
+      const response = await api.get('/farmer-dues', { params });
+      return response.data.data || [];
+    } catch (error) {
+      showError(error, t('farmerDues.errors.fetchDues'));
+      return [];
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExport = async (exportFn) => {
+    const allDues = await fetchAllForExport();
+    if (allDues.length === 0) return;
+    const rows = buildExportRows(allDues, t);
+    exportFn(rows);
   };
 
   const validateForm = () => {
@@ -254,10 +319,12 @@ export const FarmerDuesPage = () => {
 
     try {
       setSaving(true);
-      await api.post(`/farmer-dues/${paymentDue.id}/payment`, { paymentAmount: amount });
+      await api.post(`/farmer-dues/${paymentDue.id}/payment`, { paymentAmount: amount, paymentMethod, notes: paymentNotes });
       addNotification(t('farmerDues.toasts.paymentRecorded'), 'success');
       setPaymentDue(null);
       setPaymentAmount('');
+      setPaymentMethod('Cash');
+      setPaymentNotes('');
       await Promise.all([fetchDues(), fetchSummary()]);
     } catch (error) {
       showError(error, t('farmerDues.errors.recordPayment'));
@@ -294,7 +361,7 @@ export const FarmerDuesPage = () => {
     setPagination((current) => ({ ...current, page: 1 }));
   };
 
-  const exportRows = buildExportRows(dues, t);
+
   const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
 
   return (
@@ -344,17 +411,17 @@ export const FarmerDuesPage = () => {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" className="btn btn-secondary btn-sm" onClick={resetFilters}>{t('common.reset')}</button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadTextFile(toCsv(exportRows), 'farmer-dues.csv', 'text/csv')}>
-                  <Download className="h-4 w-4" /> {t('farmerDues.export.csv')}
+                <button type="button" className="btn btn-secondary btn-sm" disabled={exporting} onClick={() => handleExport((rows) => downloadTextFile(toCsv(rows), 'farmer-dues.csv', 'text/csv'))}>
+                  <Download className="h-4 w-4" /> {exporting ? '...' : t('farmerDues.export.csv')}
                 </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadTextFile(toHtmlTable(exportRows), 'farmer-dues.xls', 'application/vnd.ms-excel')}>
-                  <FileSpreadsheet className="h-4 w-4" /> {t('farmerDues.export.excel')}
+                <button type="button" className="btn btn-secondary btn-sm" disabled={exporting} onClick={() => handleExport((rows) => downloadTextFile(toHtmlTable(rows), 'farmer-dues.xls', 'application/vnd.ms-excel'))}>
+                  <FileSpreadsheet className="h-4 w-4" /> {exporting ? '...' : t('farmerDues.export.excel')}
                 </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => openPrintReport(dues, t('farmerDues.report.listTitle'), t)}>
-                  <Printer className="h-4 w-4" /> {t('farmerDues.export.print')}
+                <button type="button" className="btn btn-secondary btn-sm" disabled={exporting} onClick={async () => { const allDues = await fetchAllForExport(); if (allDues.length) openPrintReport(allDues, t('farmerDues.report.listTitle'), t); }}>
+                  <Printer className="h-4 w-4" /> {exporting ? '...' : t('farmerDues.export.print')}
                 </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => openPrintReport(dues, t('farmerDues.report.pdfTitle'), t)}>
-                  <FileDown className="h-4 w-4" /> {t('farmerDues.export.pdf')}
+                <button type="button" className="btn btn-secondary btn-sm" disabled={exporting} onClick={() => handleExport((rows) => downloadPdf(rows, t('farmerDues.report.pdfTitle')))}>
+                  <FileDown className="h-4 w-4" /> {exporting ? '...' : t('farmerDues.export.pdf')}
                 </button>
               </div>
             </div>
@@ -365,7 +432,7 @@ export const FarmerDuesPage = () => {
                 options={chartOptions}
                 data={{
                   labels: (summary?.statusChart || []).map((item) => t(`farmerDues.status.${item.status}`)),
-                  datasets: [{ label: t('farmerDues.chart.farmers'), data: (summary?.statusChart || []).map((item) => item.count), backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'] }],
+                  datasets: [{ label: t('farmerDues.chart.farmers'), data: (summary?.statusChart || []).map((item) => item.count), backgroundColor: (summary?.statusChart || []).map((item) => STATUS_COLORS[item.status] || '#94a3b8') }],
                 }}
               />
             </div>
@@ -381,16 +448,18 @@ export const FarmerDuesPage = () => {
                   <th>{t('farmerDues.fields.dueAmount')}</th>
                   <th>{t('farmerDues.fields.paidAmount')}</th>
                   <th>{t('farmerDues.fields.remainingAmount')}</th>
+                  <th>Progress</th>
                   <th>{t('common.status')}</th>
+                  <th>Age</th>
                   <th>{t('farmerDues.fields.createdDate')}</th>
                   <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="9">{t('common.loading')}</td></tr>
+                  <tr><td colSpan="11">{t('common.loading')}</td></tr>
                 ) : dues.length === 0 ? (
-                  <tr><td colSpan="9">{t('farmerDues.empty')}</td></tr>
+                  <tr><td colSpan="11">{t('farmerDues.empty')}</td></tr>
                 ) : dues.map((due) => (
                   <tr key={due.id}>
                     <td className="font-semibold">{due.farmerName}</td>
@@ -399,13 +468,45 @@ export const FarmerDuesPage = () => {
                     <td>{formatCurrency(due.dueAmount)}</td>
                     <td>{formatCurrency(due.paidAmount)}</td>
                     <td>{formatCurrency(due.remainingAmount)}</td>
+                    <td>
+                      {(() => {
+                        const paidPercent = due.dueAmount > 0 ? Math.min((due.paidAmount / due.dueAmount) * 100, 100) : 0;
+                        const barColor = paidPercent >= 100 ? '#10b981' : paidPercent >= 50 ? '#3b82f6' : paidPercent >= 1 ? '#f59e0b' : '#e2e8f0';
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 rounded-full bg-slate-200 dark:bg-gray-700">
+                              <div className="h-2 rounded-full transition-all" style={{ width: `${paidPercent}%`, backgroundColor: barColor }} />
+                            </div>
+                            <span className="text-xs font-medium text-slate-500">{Math.round(paidPercent)}%</span>
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td><span className={statusBadge(due.status)}>{t(`farmerDues.status.${due.status}`)}</span></td>
+                    <td>
+                      {due.status === 'Paid'
+                        ? <span className="badge badge-green">✓ Cleared</span>
+                        : (() => { const age = getDueAge(due.createdAt); return <span className={age.className}><Clock className="mr-1 inline h-3 w-3" />{age.label}</span>; })()
+                      }
+                    </td>
                     <td>{formatDate(due.createdAt)}</td>
                     <td>
                       <div className="flex flex-wrap gap-2">
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setViewingDue(due)} title={t('common.view')}><Eye className="h-4 w-4" /></button>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditForm(due)} title={t('common.edit')}><Edit className="h-4 w-4" /></button>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPaymentDue(due); setPaymentAmount(''); }} disabled={Number(due.remainingAmount || 0) <= 0} title={t('farmerDues.recordPayment')}><WalletCards className="h-4 w-4" /></button>
+                        {Number(due.remainingAmount || 0) > 0 && (
+                          <a
+                            href={`https://wa.me/91${due.phoneNumber}?text=${encodeURIComponent(`Dear ${due.farmerName}, you have a pending due of ₹${due.remainingAmount} at our shop. Kindly clear it at your earliest convenience. Thank you.`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-sm"
+                            style={{ backgroundColor: '#25D366', color: '#fff' }}
+                            title="Send WhatsApp Reminder"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </a>
+                        )}
                         <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(due)} title={t('common.delete')}><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
@@ -464,6 +565,16 @@ export const FarmerDuesPage = () => {
                 <label className="form-label">{t('farmerDues.fields.paymentAmount')} *</label>
                 <input className="input" type="number" min="0.01" max={paymentDue?.remainingAmount || undefined} step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} required />
               </div>
+              <div>
+                <label className="form-label">{t('farmerDues.fields.paymentMethod') || 'Payment Method'}</label>
+                <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                  {PAYMENT_METHODS.map((method) => <option key={method} value={method}>{method}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Notes</label>
+                <input className="input" value={paymentNotes} onChange={(e) => setPaymentNotes(e.target.value)} placeholder="Optional payment notes" />
+              </div>
               <button type="submit" className="btn btn-primary w-full" disabled={saving}>{t('farmerDues.savePayment')}</button>
             </form>
           </Modal>
@@ -494,8 +605,10 @@ export const FarmerDuesPage = () => {
                   <div className="space-y-2">
                     {(viewingDue.paymentHistory || []).length === 0 && <p className="text-sm text-slate-500">{t('farmerDues.noPayments')}</p>}
                     {(viewingDue.paymentHistory || []).map((payment) => (
-                      <div key={payment.id || payment._id} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm dark:bg-gray-900">
+                      <div key={payment.id || payment._id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-sm dark:bg-gray-900">
                         <span>{formatDate(payment.paymentDate)}</span>
+                        <span className="badge badge-blue">{payment.paymentMethod || 'Cash'}</span>
+                        {payment.notes && <span className="text-xs text-slate-400" title={payment.notes}>📝</span>}
                         <span className="font-semibold">{formatCurrency(payment.amount)}</span>
                       </div>
                     ))}

@@ -297,6 +297,8 @@ const farmerDuePaymentSchema = new Schema({
   amount: { type: Number, required: true, min: 0.01 },
   paymentDate: { type: Date, default: Date.now },
   recordedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  paymentMethod: { type: String, enum: ['Cash', 'UPI', 'Cheque', 'Bank Transfer', 'Other'], default: 'Cash' },
+  notes: { type: String, trim: true },
 }, { _id: true, toJSON: baseOptions.toJSON, toObject: baseOptions.toObject });
 
 const farmerDueSchema = new Schema({
@@ -322,7 +324,7 @@ const farmerDueSchema = new Schema({
   paymentHistory: [farmerDuePaymentSchema],
 }, baseOptions);
 
-farmerDueSchema.pre('validate', function calculateRemainingAmount(next) {
+farmerDueSchema.pre('validate', function calculateRemainingAmount() {
   const dueAmount = Number(this.dueAmount || 0);
   const paidAmount = Number(this.paidAmount || 0);
   this.remainingAmount = Number(Math.max(dueAmount - paidAmount, 0).toFixed(2));
@@ -336,7 +338,6 @@ farmerDueSchema.pre('validate', function calculateRemainingAmount(next) {
   } else {
     this.status = 'Pending';
   }
-  next();
 });
 
 farmerDueSchema.index({ adminId: 1, storeId: 1, createdAt: -1 });
