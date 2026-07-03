@@ -15,6 +15,14 @@ export const MARKETS = [
   { id: 'mangalore', name: 'Mangalore APMC', state: 'Karnataka', district: 'Dakshina Kannada', lat: 12.9141, lon: 74.8560, majorCommodities: ['Coconut', 'Arecanut', 'Paddy', 'Fruit'] },
   { id: 'chitradurga', name: 'Chitradurga APMC', state: 'Karnataka', district: 'Chitradurga', lat: 14.2244, lon: 76.3989, majorCommodities: ['Onion', 'Pomegranate', 'Groundnut', 'Maize'] },
   { id: 'raichur', name: 'Raichur APMC', state: 'Karnataka', district: 'Raichur', lat: 16.2120, lon: 77.3550, majorCommodities: ['Paddy', 'Cotton', 'Groundnut', 'Sunflower'] },
+  
+  // Haveri District Real APMC Markets
+  { id: 'ranebennur_apmc', name: 'Ranebennur APMC', state: 'Karnataka', district: 'Haveri', lat: 14.6234, lon: 75.6214, majorCommodities: ['Maize', 'Chilli', 'Cotton', 'Onion'] },
+  { id: 'byadgi_apmc', name: 'Byadgi Chilli Market', state: 'Karnataka', district: 'Haveri', lat: 14.6820, lon: 75.4920, majorCommodities: ['Chilli', 'Cotton', 'Onion'] },
+  { id: 'haveri_apmc', name: 'Haveri APMC', state: 'Karnataka', district: 'Haveri', lat: 14.7960, lon: 75.4010, majorCommodities: ['Maize', 'Paddy', 'Cotton'] },
+  { id: 'laxmeshwar_apmc', name: 'Laxmeshwar APMC', state: 'Karnataka', district: 'Gadag', lat: 15.1320, lon: 75.4740, majorCommodities: ['Groundnut', 'Maize', 'Cotton'] },
+  { id: 'gadag_apmc', name: 'Gadag APMC', state: 'Karnataka', district: 'Gadag', lat: 15.4280, lon: 75.6260, majorCommodities: ['Onion', 'Groundnut', 'Greengram'] },
+
   { id: 'koyambedu', name: 'Koyambedu Wholesale Market', state: 'Tamil Nadu', district: 'Chennai', lat: 13.0732, lon: 80.1912, majorCommodities: ['Tomato', 'Onion', 'Potato', 'Banana', 'Orange'] },
   { id: 'coimbatore', name: 'Coimbatore APMC', state: 'Tamil Nadu', district: 'Coimbatore', lat: 11.0168, lon: 76.9558, majorCommodities: ['Tomato', 'Coconut', 'Brinjal', 'Papaya'] },
   { id: 'madurai', name: 'Madurai APMC', state: 'Tamil Nadu', district: 'Madurai', lat: 9.9252, lon: 78.1198, majorCommodities: ['Paddy', 'Banana', 'Mango', 'Chilli'] },

@@ -325,6 +325,39 @@ export const analyze = async (req, res) => {
 
     // 3. Retrieve MandiMarkets from MongoDB (prevent recommending distant states)
     const outsideSearch = searchOutsideArea === true || searchOutsideArea === 'true';
+
+    // Seed district-level mandis dynamically if none exist in the database for the user's district
+    if (locationProfile.district && locationProfile.state) {
+      const count = await MandiMarket.countDocuments({
+        district: { $regex: new RegExp(`^${locationProfile.district}$`, 'i') },
+        state: { $regex: new RegExp(`^${locationProfile.state}$`, 'i') }
+      });
+      if (count === 0) {
+        console.log(`[Location] Generating dynamic local markets for: ${locationProfile.district}`);
+        const baseLat = locationProfile.lat || 12.9716;
+        const baseLon = locationProfile.lon || 77.5946;
+        const dynamicMandis = [
+          {
+            marketId: `${locationProfile.district.toLowerCase()}_apmc_main`,
+            name: `${locationProfile.district} APMC (Main Yard)`,
+            state: locationProfile.state,
+            district: locationProfile.district,
+            lat: baseLat + 0.03,
+            lon: baseLon - 0.02
+          },
+          {
+            marketId: `${locationProfile.district.toLowerCase()}_apmc_town`,
+            name: `${locationProfile.district} Town Market`,
+            state: locationProfile.state,
+            district: locationProfile.district,
+            lat: baseLat - 0.04,
+            lon: baseLon + 0.03
+          }
+        ];
+        await MandiMarket.insertMany(dynamicMandis, { ordered: false }).catch(() => {});
+      }
+    }
+
     let filteredMarkets = [];
 
     if (!outsideSearch && locationProfile.state) {
