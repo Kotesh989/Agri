@@ -206,7 +206,11 @@ const loginWithRole = async (req, res, expectedRole) => {
         success: true,
         otpRequired: true,
         identifier: user.email.toLowerCase(),
-        message: 'OTP verification code sent to your email.'
+        message: 'OTP verification code sent to your email.',
+        data: {
+          otpRequired: true,
+          identifier: user.email.toLowerCase()
+        }
       });
     }
 
