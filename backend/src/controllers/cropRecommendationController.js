@@ -387,7 +387,7 @@ export const analyze = async (req, res) => {
         season: scoreSeasonSuitability(crop, currentMonth),
         weather: scoreWeatherCompatibility(crop, weatherSummary),
         soil: scoreSoilCompatibility(crop, soilType),
-        profit: scoreProfitMargin(crop, land, 'Karnataka', harvestMonth),
+        profit: scoreProfitMargin(crop, land, 'Karnataka', harvestMonth, locationProfile, weatherSummary, soilType, waterSource),
         price: scorePriceTrend(crop, harvestMonth, historicalData),
         demand: scoreDemandFactor(crop, harvestMonth),
         risk: scoreRiskAssessment(crop, weatherSummary),
@@ -404,7 +404,7 @@ export const analyze = async (req, res) => {
         )
       } : null;
 
-      const economics = calculateEconomics(crop, land, harvestMonth, mockHistoricalData);
+      const economics = calculateEconomics(crop, land, harvestMonth, mockHistoricalData, locationProfile, weatherSummary, soilType, waterSource);
       const risk = assessRiskLevel(crop, scores);
       const reasons = generateReasons(crop, scores, weatherSummary, harvestMonth);
 

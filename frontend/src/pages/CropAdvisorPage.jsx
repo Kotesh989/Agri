@@ -777,42 +777,6 @@ export const CropAdvisorPage = () => {
                                   ))}
                                 </div>
                               </div>
-
-                              {/* Nearby Market Options */}
-                              <div>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2 block">Nearby Market Logistics</span>
-                                <div className="overflow-x-auto">
-                                  <table className="table min-w-full text-[10px]">
-                                    <thead>
-                                      <tr className="bg-slate-100 dark:bg-gray-800">
-                                        <th className="py-1 px-2">Market</th>
-                                        <th className="py-1 px-2">Distance</th>
-                                        <th className="py-1 px-2 text-right">Mandi Rate</th>
-                                        <th className="py-1 px-2 text-center">Trend</th>
-                                        <th className="py-1 px-2 text-right">Freight</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {rec.nearbyMarkets.map((m, i) => (
-                                        <tr key={i} className="border-b dark:border-gray-800">
-                                          <td className="py-1 px-2 font-semibold">{m.name}</td>
-                                          <td className="py-1 px-2">{m.distance} km</td>
-                                          <td className="py-1 px-2 text-right font-bold text-emerald-600">{formatCurrency(m.predictedPrice)}/Q</td>
-                                          <td className="py-1 px-2 text-center">
-                                            <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${
-                                              m.marketTrend === 'Increasing' ? 'bg-green-100 text-green-800' :
-                                              m.marketTrend === 'Decreasing' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-800'
-                                            }`}>
-                                              {m.marketTrend}
-                                            </span>
-                                          </td>
-                                          <td className="py-1 px-2 text-right text-red-500">{formatCurrency(m.transportCost)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
                             </div>
                           )}
 
@@ -872,9 +836,9 @@ export const CropAdvisorPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="grid grid-cols-1 gap-6">
                     {/* 12-Month Price Trend line graph */}
-                    <div className="lg:col-span-8 card">
+                    <div className="card">
                       <div className="flex justify-between items-center mb-4">
                         <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider">Crop Price Cyclical Index (12 Months)</h4>
                         
@@ -902,31 +866,6 @@ export const CropAdvisorPage = () => {
                             scales: { y: { ticks: { callback: value => '₹' + value } } }
                           }} 
                         />
-                      </div>
-                    </div>
-
-                    {/* Nearby Markets Comparison Card */}
-                    <div className="lg:col-span-4 card flex flex-col justify-between">
-                      <div>
-                        <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider mb-4">Best Markets (Selected Crop)</h4>
-                        <div className="space-y-3.5">
-                          {selectedTrendCrop?.nearbyMarkets.map((m, i) => (
-                            <div key={i} className="flex justify-between items-center text-xs border-b pb-2 dark:border-gray-800">
-                              <div>
-                                <p className="font-bold text-slate-800 dark:text-gray-200">{m.name}</p>
-                                <p className="text-[10px] text-gray-400">Distance: {m.distance} km</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-extrabold text-emerald-600">{formatCurrency(m.predictedPrice)}/Q</p>
-                                <p className="text-[10px] text-red-500">Freight: {formatCurrency(m.transportCost)}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t dark:border-gray-800 text-[10px] text-slate-400">
-                        * Prices are predicted averages for the expected harvest period. Transportation costs are estimated per quintal volume.
                       </div>
                     </div>
                   </div>
