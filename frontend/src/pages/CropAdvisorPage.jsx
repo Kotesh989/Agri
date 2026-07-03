@@ -7,10 +7,11 @@ import { useTranslation } from 'react-i18next';
 import api from '../utils/api';
 import { formatCurrency } from '../utils/helpers';
 import { showError } from '../utils/notificationService';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { 
   Sprout, MapPin, LandPlot, Droplets, Info, AlertTriangle, 
   CheckCircle, ArrowRight, CloudSun, TrendingUp, DollarSign, 
-  HelpCircle, ChevronDown, ChevronUp, Star, RefreshCw
+  HelpCircle, ChevronDown, ChevronUp, Star, RefreshCw, Landmark, ShieldCheck
 } from 'lucide-react';
 import { Bar, Line, Radar } from 'react-chartjs-2';
 import { 
@@ -43,8 +44,17 @@ ChartJS.register(
 );
 
 const SOIL_TYPES = ['Black', 'Red', 'Loamy', 'Sandy', 'Clay', 'Alluvial', 'Laterite', 'Sandy Loam'];
+const LAND_TYPES = ['Dry land', 'Wet land', 'Rainfed', 'Irrigated', 'Wasteland'];
+const IRRIGATION_TYPES = ['Drip', 'Sprinkler', 'Flood', 'None'];
 const WATER_SOURCES = ['Borewell', 'Canal', 'Rain-fed', 'River', 'Tank'];
 const FARMING_TYPES = ['Organic', 'Traditional', 'Mixed'];
+const CROP_CATEGORIES = ['VEGETABLE', 'FRUIT', 'COMMERCIAL', 'CEREAL', 'SPICE', 'OILSEED', 'PULSE'];
+const CROP_VARIETIES = ['FAQ', 'Hybrid', 'Local', 'Desi'];
+const SEED_VARIETIES = ['F1', 'Organic', 'Certified', 'Traditional'];
+
+const GOVT_SCHEMES = ['PM-KISAN', 'Pradhan Mantri Fasal Bima Yojana (PMFBY)', 'Soil Health Card Scheme', 'Rastriya Krishi Vikas Yojana'];
+const COOPERATIVE_BANKS = ['NABARD', 'State Bank of India (Agriculture)', 'Canara Bank Rural', 'District Cooperative Bank'];
+const AGR_DEPARTMENTS = ['Raitha Mitra Kendra (Karnataka)', 'Krishi Vigyan Kendra (KVK)', 'Department of Agriculture'];
 
 export const CropAdvisorPage = () => {
   const { user } = useAuth();
@@ -52,18 +62,37 @@ export const CropAdvisorPage = () => {
   const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
+    country: 'India',
     state: '',
     district: '',
     taluk: '',
+    hobli: '',
     village: '',
+    pincode: '',
     lat: '',
     lon: '',
     landSize: 1,
     soilType: 'Loamy',
-    irrigationAvailable: false,
+    landType: 'Irrigated',
+    irrigationType: 'Drip',
     waterSource: 'Borewell',
-    farmingType: 'Traditional'
+    farmingType: 'Traditional',
+    cropCategory: 'VEGETABLE',
+    cropVariety: 'FAQ',
+    seedVariety: 'Certified',
+    searchOutsideArea: false,
+    scheme: 'PM-KISAN',
+    bank: 'NABARD',
+    department: 'Krishi Vigyan Kendra (KVK)'
   });
+
+  // Options state lists for dropdowns
+  const [countriesList] = useState(['India']);
+  const [statesList, setStatesList] = useState([]);
+  const [districtsList, setDistrictsList] = useState([]);
+  const [taluksList, setTaluksList] = useState([]);
+  const [hoblisList, setHoblisList] = useState([]);
+  const [villagesList, setVillagesList] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -71,7 +100,20 @@ export const CropAdvisorPage = () => {
   const [selectedTrendCrop, setSelectedTrendCrop] = useState(null);
   const [detecting, setDetecting] = useState(false);
 
-  // Auto-fill form from user profile on mount
+  // Load States on mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const stateRes = await api.get('/location/states?country=India');
+        setStatesList(stateRes.data.data || []);
+      } catch (err) {
+        console.error('Error fetching initial states:', err);
+      }
+    };
+    fetchInitialData();
+  }, []);
+
+  // Autofill form from user profile on mount
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
@@ -84,7 +126,101 @@ export const CropAdvisorPage = () => {
     }
   }, [user]);
 
-  // Auto-detect GPS coordinates and reverse geocode location details
+  // Load Districts when State changes
+  useEffect(() => {
+    if (!formData.state) {
+      setDistrictsList([]);
+      return;
+    }
+    const loadDistricts = async () => {
+      try {
+        const res = await api.get(`/location/districts?state=${formData.state}`);
+        setDistrictsList(res.data.data || []);
+      } catch (err) {
+        showError(err, 'Failed to fetch districts');
+      }
+    };
+    loadDistricts();
+  }, [formData.state]);
+
+  // Load Taluks when District changes
+  useEffect(() => {
+    if (!formData.district) {
+      setTaluksList([]);
+      return;
+    }
+    const loadTaluks = async () => {
+      try {
+        const res = await api.get(`/location/taluks?district=${formData.district}`);
+        setTaluksList(res.data.data || []);
+      } catch (err) {
+        showError(err, 'Failed to fetch taluks');
+      }
+    };
+    loadTaluks();
+  }, [formData.district]);
+
+  // Load Hoblis when Taluk changes
+  useEffect(() => {
+    if (!formData.taluk) {
+      setHoblisList([]);
+      return;
+    }
+    const loadHoblis = async () => {
+      try {
+        const res = await api.get(`/location/hoblis?taluk=${formData.taluk}`);
+        setHoblisList(res.data.data || []);
+      } catch (err) {
+        showError(err, 'Failed to fetch hoblis');
+      }
+    };
+    loadHoblis();
+  }, [formData.taluk]);
+
+  // Load Villages when Hobli/Taluk changes
+  useEffect(() => {
+    if (!formData.taluk) {
+      setVillagesList([]);
+      return;
+    }
+    const loadVillages = async () => {
+      try {
+        const params = { taluk: formData.taluk };
+        if (formData.hobli) params.hobli = formData.hobli;
+        const res = await api.get('/location/villages', { params });
+        setVillagesList(res.data.data.map(v => v.name) || []);
+      } catch (err) {
+        showError(err, 'Failed to fetch villages');
+      }
+    };
+    loadVillages();
+  }, [formData.taluk, formData.hobli]);
+
+  // PIN Code Lookup Trigger
+  const handlePincodeChange = async (val) => {
+    setFormData(prev => ({ ...prev, pincode: val }));
+    if (val && val.length === 6) {
+      try {
+        const res = await api.get(`/location/lookup-pin/${val}`);
+        if (res.data.success && res.data.data) {
+          const loc = res.data.data;
+          setFormData(prev => ({
+            ...prev,
+            state: loc.state,
+            district: loc.district,
+            taluk: loc.taluk,
+            hobli: loc.hobli || '',
+            village: loc.village
+          }));
+          addNotification('Location auto-resolved from PIN code!', 'success');
+        }
+      } catch (err) {
+        console.warn('PIN code lookup failed:', err);
+      }
+    }
+  };
+
+  // Auto-detect Location coordinates and resolve address
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       addNotification('Geolocation is not supported by your browser', 'error');
@@ -104,7 +240,6 @@ export const CropAdvisorPage = () => {
         }));
 
         try {
-          // OpenStreetMap Nominatim Free Reverse Geocoding API
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=en`
           );
@@ -117,7 +252,8 @@ export const CropAdvisorPage = () => {
               state: address.state || prev.state,
               district: address.district || address.county || address.state_district || prev.district,
               taluk: address.suburb || address.town || address.county || prev.taluk,
-              village: address.village || address.hamlet || address.neighbourhood || address.suburb || prev.village
+              village: address.village || address.hamlet || address.neighbourhood || address.suburb || prev.village,
+              pincode: address.postcode || prev.pincode
             }));
             addNotification('GPS location and address details resolved successfully!', 'success');
           } else {
@@ -227,71 +363,95 @@ export const CropAdvisorPage = () => {
       <div className="app-content">
         <Navbar />
         <main className="app-main">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Sprout className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-              {t('cropAdvisor.title') || 'AI Crop Advisor'}
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-              {t('cropAdvisor.subtitle') || 'Intelligent crop recommendations for maximum profit based on weather, market pricing, and local constraints.'}
-            </p>
+          <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2 text-slate-800 dark:text-gray-100">
+                <Sprout className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                {t('cropAdvisor.title') || 'AI Crop Advisor'}
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
+                {t('cropAdvisor.subtitle') || 'Intelligent cascading dropdowns, auto address detection, and daily market synchronizations.'}
+              </p>
+            </div>
+            
+            {results && (
+              <div className="flex items-center gap-2 card p-2 px-3 border border-slate-100 dark:border-gray-800 shadow-sm bg-slate-50/50">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
+                <span className="text-xs font-bold text-emerald-600">
+                  Last Updated: {new Date(results.generatedAt).toLocaleString('en-IN', { hour12: false })}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Input Form Column */}
-            <div className="lg:col-span-4 card h-fit">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2 border-b pb-2">
+            <div className="lg:col-span-4 card h-fit space-y-4">
+              <h2 className="text-lg font-extrabold flex items-center gap-2 border-b pb-2 text-slate-800 dark:text-gray-200">
                 <LandPlot className="w-5 h-5 text-emerald-600" />
-                {t('cropAdvisor.inputTitle') || 'Farm Profile'}
+                {t('cropAdvisor.inputTitle') || 'Farm & Sowing Profile'}
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.state') || 'State'}</label>
-                    <input 
-                      type="text" 
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      placeholder="e.g. Karnataka"
-                      className="input py-1.5 text-sm" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.district') || 'District'}</label>
-                    <input 
-                      type="text" 
-                      value={formData.district}
-                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                      placeholder="e.g. Mandya"
-                      className="input py-1.5 text-sm" 
-                      required 
-                    />
-                  </div>
-                </div>
+                {/* 1. Location Section (Cascading Dropdowns) */}
+                <div className="space-y-3">
+                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">1. Location Details</span>
+                  
+                  <SearchableSelect 
+                    label="Country" 
+                    options={countriesList} 
+                    value={formData.country} 
+                    onChange={(val) => setFormData({ ...formData, country: val })} 
+                  />
 
-                <div className="grid grid-cols-2 gap-3">
+                  <SearchableSelect 
+                    label="State" 
+                    options={statesList} 
+                    value={formData.state} 
+                    onChange={(val) => setFormData({ ...formData, state: val, district: '', taluk: '', hobli: '', village: '' })} 
+                  />
+
+                  <SearchableSelect 
+                    label="District" 
+                    options={districtsList} 
+                    value={formData.district} 
+                    disabled={!formData.state}
+                    onChange={(val) => setFormData({ ...formData, district: val, taluk: '', hobli: '', village: '' })} 
+                  />
+
+                  <SearchableSelect 
+                    label="Taluk / Tehsil" 
+                    options={taluksList} 
+                    value={formData.taluk} 
+                    disabled={!formData.district}
+                    onChange={(val) => setFormData({ ...formData, taluk: val, hobli: '', village: '' })} 
+                  />
+
+                  <SearchableSelect 
+                    label="Hobli (if applicable)" 
+                    options={hoblisList} 
+                    value={formData.hobli} 
+                    disabled={!formData.taluk || hoblisList.length === 0}
+                    onChange={(val) => setFormData({ ...formData, hobli: val, village: '' })} 
+                  />
+
+                  <SearchableSelect 
+                    label="Village" 
+                    options={villagesList} 
+                    value={formData.village} 
+                    disabled={!formData.taluk}
+                    onChange={(val) => setFormData({ ...formData, village: val })} 
+                  />
+
                   <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.taluk') || 'Taluk'}</label>
+                    <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">PIN Code</label>
                     <input 
-                      type="text" 
-                      value={formData.taluk}
-                      onChange={(e) => setFormData({ ...formData, taluk: e.target.value })}
-                      placeholder="e.g. Malavalli"
-                      className="input py-1.5 text-sm" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.village') || 'Village'}</label>
-                    <input 
-                      type="text" 
-                      value={formData.village}
-                      onChange={(e) => setFormData({ ...formData, village: e.target.value })}
-                      placeholder="e.g. Mandya Village"
-                      className="input py-1.5 text-sm" 
-                      required 
+                      type="text"
+                      maxLength={6}
+                      placeholder="Enter 6-digit PIN"
+                      value={formData.pincode}
+                      onChange={(e) => handlePincodeChange(e.target.value)}
+                      className="input py-1.5 text-sm"
                     />
                   </div>
                 </div>
@@ -301,7 +461,7 @@ export const CropAdvisorPage = () => {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-red-500" />
-                      GPS Location (Optional)
+                      GPS Coordinate Geocoding
                     </span>
                     <button 
                       type="button"
@@ -310,7 +470,7 @@ export const CropAdvisorPage = () => {
                       className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1"
                     >
                       {detecting && <RefreshCw className="w-3 h-3 animate-spin" />}
-                      {detecting ? 'Resolving Address...' : (t('cropAdvisor.detectLocation') || 'Detect Location')}
+                      {detecting ? 'Reverse Lookup...' : (t('cropAdvisor.detectLocation') || 'Detect GPS')}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -333,67 +493,110 @@ export const CropAdvisorPage = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.landSize') || 'Land Size (Acres)'}</label>
-                  <input 
-                    type="number" 
-                    min="0.1" 
-                    step="0.1"
-                    value={formData.landSize}
-                    onChange={(e) => setFormData({ ...formData, landSize: e.target.value })}
-                    className="input py-1.5 text-sm" 
-                    required 
+                {/* 2. Farm Details */}
+                <div className="space-y-3 pt-2 border-t dark:border-gray-800">
+                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">2. Soil & Farm Details</span>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <SearchableSelect 
+                      label="Soil Type" 
+                      options={SOIL_TYPES} 
+                      value={formData.soilType} 
+                      onChange={(val) => setFormData({ ...formData, soilType: val })} 
+                    />
+                    <SearchableSelect 
+                      label="Land Type" 
+                      options={LAND_TYPES} 
+                      value={formData.landType} 
+                      onChange={(val) => setFormData({ ...formData, landType: val })} 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <SearchableSelect 
+                      label="Irrigation Type" 
+                      options={IRRIGATION_TYPES} 
+                      value={formData.irrigationType} 
+                      onChange={(val) => setFormData({ ...formData, irrigationType: val })} 
+                    />
+                    <SearchableSelect 
+                      label="Water Source" 
+                      options={WATER_SOURCES} 
+                      value={formData.waterSource} 
+                      onChange={(val) => setFormData({ ...formData, waterSource: val })} 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <SearchableSelect 
+                      label="Farming Type" 
+                      options={FARMING_TYPES} 
+                      value={formData.farmingType} 
+                      onChange={(val) => setFormData({ ...formData, farmingType: val })} 
+                    />
+                    <div>
+                      <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">Land Size (Acres)</label>
+                      <input 
+                        type="number" 
+                        min="0.1" 
+                        step="0.1"
+                        value={formData.landSize}
+                        onChange={(e) => setFormData({ ...formData, landSize: e.target.value })}
+                        className="input py-1.5 text-sm" 
+                        required 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Crop details */}
+                <div className="space-y-3 pt-2 border-t dark:border-gray-800">
+                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">3. Seed & Crop Variety</span>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <SearchableSelect 
+                      label="Crop Category" 
+                      options={CROP_CATEGORIES} 
+                      value={formData.cropCategory} 
+                      onChange={(val) => setFormData({ ...formData, cropCategory: val })} 
+                    />
+                    <SearchableSelect 
+                      label="Crop Variety" 
+                      options={CROP_VARIETIES} 
+                      value={formData.cropVariety} 
+                      onChange={(val) => setFormData({ ...formData, cropVariety: val })} 
+                    />
+                  </div>
+
+                  <SearchableSelect 
+                    label="Seed Variety" 
+                    options={SEED_VARIETIES} 
+                    value={formData.seedVariety} 
+                    onChange={(val) => setFormData({ ...formData, seedVariety: val })} 
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.soilType') || 'Soil Type'}</label>
-                    <select 
-                      value={formData.soilType}
-                      onChange={(e) => setFormData({ ...formData, soilType: e.target.value })}
-                      className="input py-1.5 text-sm"
-                    >
-                      {SOIL_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.farmingType') || 'Farming Type'}</label>
-                    <select 
-                      value={formData.farmingType}
-                      onChange={(e) => setFormData({ ...formData, farmingType: e.target.value })}
-                      className="input py-1.5 text-sm"
-                    >
-                      {FARMING_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
-                    </select>
-                  </div>
+                {/* 4. Gov & Support */}
+                <div className="space-y-3 pt-2 border-t dark:border-gray-800">
+                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">4. Administrative Support</span>
+                  <SearchableSelect label="Govt Schemes" options={GOVT_SCHEMES} value={formData.scheme} onChange={(val) => setFormData({ ...formData, scheme: val })} />
+                  <SearchableSelect label="Supported Bank" options={COOPERATIVE_BANKS} value={formData.bank} onChange={(val) => setFormData({ ...formData, bank: val })} />
+                  <SearchableSelect label="Agr Department" options={AGR_DEPARTMENTS} value={formData.department} onChange={(val) => setFormData({ ...formData, department: val })} />
                 </div>
 
+                {/* Outside Mandis Filter Option */}
                 <div className="flex items-center gap-2 py-1">
                   <input 
                     type="checkbox"
-                    id="irrigation"
-                    checked={formData.irrigationAvailable}
-                    onChange={(e) => setFormData({ ...formData, irrigationAvailable: e.target.checked })}
+                    id="searchOutside"
+                    checked={formData.searchOutsideArea}
+                    onChange={(e) => setFormData({ ...formData, searchOutsideArea: e.target.checked })}
                     className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <label htmlFor="irrigation" className="text-xs font-semibold select-none cursor-pointer">
-                    {t('cropAdvisor.irrigation') || 'Irrigation/Water Available'}
+                  <label htmlFor="searchOutside" className="text-xs font-semibold select-none cursor-pointer">
+                    Search markets outside my district
                   </label>
                 </div>
-
-                {formData.irrigationAvailable && (
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">{t('cropAdvisor.waterSource') || 'Water Source'}</label>
-                    <select 
-                      value={formData.waterSource}
-                      onChange={(e) => setFormData({ ...formData, waterSource: e.target.value })}
-                      className="input py-1.5 text-sm animate-slide-down"
-                    >
-                      {WATER_SOURCES.map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                  </div>
-                )}
 
                 <button 
                   type="submit" 
@@ -449,7 +652,7 @@ export const CropAdvisorPage = () => {
                       <span className="text-2xl font-black mt-1">35 Crops</span>
                       <span className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 text-emerald-600 font-bold">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                        Prices Updated Today
+                        Prices Synchronized
                       </span>
                     </div>
 
@@ -521,6 +724,9 @@ export const CropAdvisorPage = () => {
                               <div>
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Expected Harvest</p>
                                 <p className="font-bold text-slate-700 dark:text-gray-300 mt-0.5">{new Date(rec.harvestDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                <span className="text-[9px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded mt-1 inline-block">
+                                  {rec.daysUntilHarvest} days to harvest
+                                </span>
                               </div>
                               <div>
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Expected Yield</p>
@@ -528,9 +734,20 @@ export const CropAdvisorPage = () => {
                               </div>
                             </div>
 
+                            <div className="grid grid-cols-2 gap-4 mb-4 text-xs pt-2 border-t dark:border-gray-800">
+                              <div>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Current Price</p>
+                                <p className="font-bold text-slate-700 dark:text-gray-300 mt-0.5">{formatCurrency(rec.economics.expectedPrice)}/Q</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Predicted Price</p>
+                                <p className="font-bold text-emerald-600 mt-0.5">{formatCurrency(rec.economics.expectedPrice)}/Q</p>
+                              </div>
+                            </div>
+
                             <div className="pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between gap-4">
                               <div>
-                                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Est. Yield Profit/Acre</p>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Yield Profit/Acre</p>
                                 <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
                                   {formatCurrency(Math.round(profitPerAcre))}
                                 </p>
@@ -540,6 +757,9 @@ export const CropAdvisorPage = () => {
                                 <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
                                   {formatCurrency(rec.economics.expectedProfit)}
                                 </p>
+                                <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1 py-0.2 rounded font-bold block mt-0.5">
+                                  +{rec.economics.profitPercentage}% Return
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -547,6 +767,27 @@ export const CropAdvisorPage = () => {
                           {/* Expanded Details Section */}
                           {isExpanded && (
                             <div className="p-4 border-t border-slate-100 dark:border-gray-800 bg-slate-50/30 dark:bg-slate-900/10 space-y-4 animate-slide-down">
+                              {/* Financial Breakdown Info */}
+                              <div className="bg-slate-100/50 dark:bg-gray-800/40 p-3 rounded-lg border dark:border-gray-800 text-xs space-y-2">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Financial Audit (Estimates)</span>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Gross Expected Revenue</span>
+                                  <span className="font-semibold text-slate-700 dark:text-gray-300">{formatCurrency(rec.economics.expectedRevenue)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Estimated Cultivation Cost</span>
+                                  <span className="font-semibold text-red-500">{formatCurrency(rec.economics.cultivationCost)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Freight & Transport Cost</span>
+                                  <span className="font-semibold text-red-500">{formatCurrency(rec.economics.transportCost)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Seed & Fertilizer Component</span>
+                                  <span className="font-semibold text-slate-600 dark:text-gray-300">{formatCurrency(rec.economics.fertilizerCost)}</span>
+                                </div>
+                              </div>
+
                               {/* Sparkline trend */}
                               <div>
                                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 block">Monthly Price Index Sparkline</span>
@@ -578,14 +819,15 @@ export const CropAdvisorPage = () => {
 
                               {/* Nearby Market Options */}
                               <div>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2 block">Best Nearby Market Rates</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2 block">Nearby Market Logistics</span>
                                 <div className="overflow-x-auto">
                                   <table className="table min-w-full text-[10px]">
                                     <thead>
                                       <tr className="bg-slate-100 dark:bg-gray-800">
                                         <th className="py-1 px-2">Market</th>
                                         <th className="py-1 px-2">Distance</th>
-                                        <th className="py-1 px-2 text-right">Harvest Rate</th>
+                                        <th className="py-1 px-2 text-right">Mandi Rate</th>
+                                        <th className="py-1 px-2 text-center">Trend</th>
                                         <th className="py-1 px-2 text-right">Freight</th>
                                       </tr>
                                     </thead>
@@ -595,6 +837,14 @@ export const CropAdvisorPage = () => {
                                           <td className="py-1 px-2 font-semibold">{m.name}</td>
                                           <td className="py-1 px-2">{m.distance} km</td>
                                           <td className="py-1 px-2 text-right font-bold text-emerald-600">{formatCurrency(m.predictedPrice)}/Q</td>
+                                          <td className="py-1 px-2 text-center">
+                                            <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${
+                                              m.marketTrend === 'Increasing' ? 'bg-green-100 text-green-800' :
+                                              m.marketTrend === 'Decreasing' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-800'
+                                            }`}>
+                                              {m.marketTrend}
+                                            </span>
+                                          </td>
                                           <td className="py-1 px-2 text-right text-red-500">{formatCurrency(m.transportCost)}</td>
                                         </tr>
                                       ))}

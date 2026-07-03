@@ -19,6 +19,7 @@ import * as soilController from '../controllers/soilController.js';
 import * as cropDiseaseController from '../controllers/cropDiseaseController.js';
 import * as machineryController from '../controllers/machineryController.js';
 import * as cropRecommendationController from '../controllers/cropRecommendationController.js';
+import * as locationController from '../controllers/locationController.js';
 import { authenticate, authorize, requireStoreAccess } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -110,6 +111,15 @@ router.get('/crop-recommendation/markets', authenticate, cropRecommendationContr
 router.get('/crop-recommendation/price-history/:cropId', authenticate, cropRecommendationController.priceHistory);
 router.get('/crop-recommendation/weather-analysis', authenticate, cropRecommendationController.weatherAnalysis);
 router.put('/crop-recommendation/prices', authenticate, authorize('ADMIN'), cropRecommendationController.updateMarketPrice);
+
+// ============ LOCATION ROUTES ============
+router.get('/location/countries', authenticate, locationController.getCountries);
+router.get('/location/states', authenticate, locationController.getStates);
+router.get('/location/districts', authenticate, locationController.getDistricts);
+router.get('/location/taluks', authenticate, locationController.getTaluks);
+router.get('/location/hoblis', authenticate, locationController.getHoblis);
+router.get('/location/villages', authenticate, locationController.getVillages);
+router.get('/location/lookup-pin/:pincode', authenticate, locationController.lookupPincode);
 
 // ============ SUPPLIER ROUTES ============
 router.post('/suppliers', authenticate, authorize('ADMIN'), requireStoreAccess, supplierController.createSupplier);

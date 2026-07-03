@@ -7,6 +7,7 @@ import routes from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { connectMongo } from './db/mongo.js';
 import { seedMongo } from './db/seed.js';
+import { startDailyPriceSyncScheduler } from './services/priceSyncService.js';
 
 dotenv.config();
 
@@ -86,6 +87,8 @@ const startServer = async () => {
     const server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log(`Allowed frontend URLs: ${FRONTEND_URLS.join(', ')}`);
+      // Start background daily market price sync scheduler
+      startDailyPriceSyncScheduler();
     });
 
     const shutdown = (signal) => {

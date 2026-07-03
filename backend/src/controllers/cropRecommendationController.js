@@ -1,8 +1,9 @@
 import { CROPS } from '../data/cropDatabase.js';
 import { MARKETS } from '../data/marketDatabase.js';
 import { HISTORICAL_PRICES } from '../data/historicalPrices.js';
-import { DailyCropPrice } from '../models/index.js';
+import { DailyCropPrice, User } from '../models/index.js';
 import { syncDailyPrices } from '../services/priceSyncService.js';
+import { resolvePincode } from '../data/locationDatabase.js';
 import {
   scoreSeasonSuitability,
   scoreWeatherCompatibility,
@@ -40,29 +41,154 @@ const DEFAULT_WEATHER = {
   avgHumidity: 65
 };
 
+// Priority location resolution engine (GPS -> Profile -> Form Dropdowns -> PIN Code -> IP Fallback)
+async function resolveLocationContext(req, body) {
+  let resolved = {
+    lat: null,
+    lon: null,
+    state: '',
+    district: '',
+    taluk: '',
+    village: '',
+    pincode: '',
+    source: ''
+  };
+
+  // 1. GPS Location coordinates
+  if (body.lat && body.lon) {
+    resolved.lat = Number(body.lat);
+    resolved.lon = Number(body.lon);
+    resolved.source = 'GPS';
+
+    try {
+      const geoUrl = `https://nominatim.openstreetmap.org/reverse?lat=${resolved.lat}&lon=${resolved.lon}&format=json&accept-language=en`;
+      const geoRes = await fetch(geoUrl);
+      if (geoRes.ok) {
+        const data = await geoRes.json();
+        const address = data.address || {};
+        resolved.state = address.state || '';
+        resolved.district = address.district || address.county || address.state_district || '';
+        resolved.taluk = address.suburb || address.town || address.county || '';
+        resolved.village = address.village || address.hamlet || address.neighbourhood || '';
+        resolved.pincode = address.postcode || '';
+      }
+    } catch (e) {
+      console.warn('[Location] GPS reverse lookup failed:', e.message);
+    }
+  }
+
+  // 2. Saved user profile location
+  if (!resolved.state && req.user?.userId) {
+    try {
+      const userProfile = await User.findById(req.user.userId);
+      if (userProfile && userProfile.state) {
+        resolved.state = userProfile.state;
+        resolved.district = userProfile.district || '';
+        resolved.taluk = userProfile.taluk || '';
+        resolved.village = userProfile.village || '';
+        resolved.source = 'Profile';
+      }
+    } catch (profileErr) {
+      console.warn('[Location] Profile read failed:', profileErr.message);
+    }
+  }
+
+  // 3. User Selection chain
+  if (!resolved.state && body.state) {
+    resolved.state = body.state;
+    resolved.district = body.district || '';
+    resolved.taluk = body.taluk || '';
+    resolved.village = body.village || '';
+    resolved.pincode = body.pincode || '';
+    resolved.source = 'Dropdown Selections';
+  }
+
+  // 4. PIN Code lookup
+  if (!resolved.state && body.pincode) {
+    const pinResolved = resolvePincode(body.pincode);
+    if (pinResolved) {
+      resolved.state = pinResolved.state;
+      resolved.district = pinResolved.district;
+      resolved.taluk = pinResolved.taluk;
+      resolved.village = pinResolved.village;
+      resolved.pincode = body.pincode;
+      resolved.source = 'PIN Local Directory';
+    } else {
+      try {
+        const pinRes = await fetch(`https://api.postalpincode.in/pincode/${body.pincode}`);
+        if (pinRes.ok) {
+          const json = await pinRes.json();
+          if (json[0]?.Status === 'Success' && json[0].PostOffice?.length > 0) {
+            const po = json[0].PostOffice[0];
+            resolved.state = po.State;
+            resolved.district = po.District;
+            resolved.taluk = po.Block || po.Taluk || po.Division;
+            resolved.village = po.Name;
+            resolved.pincode = body.pincode;
+            resolved.source = 'PIN Postal API';
+          }
+        }
+      } catch (pinErr) {
+        console.warn('[Location] Postal PIN lookup API failed:', pinErr.message);
+      }
+    }
+  }
+
+  // 5. IP-based fallback
+  if (!resolved.state || !resolved.lat) {
+    try {
+      const ipRes = await fetch('https://ipapi.co/json/');
+      if (ipRes.ok) {
+        const ipData = await ipRes.json();
+        if (ipData && !ipData.error) {
+          if (!resolved.lat) {
+            resolved.lat = Number(ipData.latitude);
+            resolved.lon = Number(ipData.longitude);
+          }
+          if (!resolved.state) {
+            resolved.state = ipData.region || '';
+            resolved.district = ipData.city || '';
+            resolved.source = 'IP Lookup';
+          }
+        }
+      }
+    } catch (ipErr) {
+      console.warn('[Location] IP lookup fallback failed:', ipErr.message);
+    }
+  }
+
+  // Default fallback coords
+  if (!resolved.lat || !resolved.lon) {
+    resolved.lat = 12.9716;
+    resolved.lon = 77.5946;
+  }
+
+  return resolved;
+}
+
 export const analyze = async (req, res) => {
   try {
     const {
-      lat,
-      lon,
       landSize = 1,
       soilType,
       irrigationAvailable = false,
       waterSource,
-      farmingType
+      farmingType,
+      searchOutsideArea = false
     } = req.body;
 
     const land = Number(landSize) || 1;
-    const farmerLat = Number(lat) || 12.9716; // default Bangalore
-    const farmerLon = Number(lon) || 77.5946;
 
-    // Trigger daily price sync to ensure database is populated
+    // 1. Resolve Location using chain of priorities
+    const locationProfile = await resolveLocationContext(req, req.body);
+
+    // Trigger daily price sync check
     await syncDailyPrices();
 
-    // 1. Fetch 7-day forecast from Open-Meteo
+    // 2. Fetch 7-day forecast from Open-Meteo
     let weatherSummary = { ...DEFAULT_WEATHER };
     try {
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${farmerLat}&longitude=${farmerLon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${locationProfile.lat}&longitude=${locationProfile.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
       const weatherRes = await fetch(weatherUrl);
       if (weatherRes.ok) {
         const weatherJson = await weatherRes.json();
@@ -82,12 +208,33 @@ export const analyze = async (req, res) => {
         }
       }
     } catch (weatherErr) {
-      console.warn('Failed to fetch weather forecast, using default climatology:', weatherErr.message);
+      console.warn('[Weather] Fetch failed, using climatology fallbacks:', weatherErr.message);
     }
 
     const currentMonth = new Date().getMonth() + 1; // 1-12
 
-    // 2. Score crops
+    // 3. Filter markets - prevent recommending distant mandis unless explicitly allowed
+    const outsideSearch = searchOutsideArea === true || searchOutsideArea === 'true';
+    let filteredMarkets = MARKETS;
+    
+    if (!outsideSearch && locationProfile.state && locationProfile.district) {
+      filteredMarkets = MARKETS.filter(m => 
+        m.state.toLowerCase() === locationProfile.state.toLowerCase() &&
+        m.district.toLowerCase() === locationProfile.district.toLowerCase()
+      );
+      // Fallback to state level if no APMCs are in the district
+      if (filteredMarkets.length === 0) {
+        filteredMarkets = MARKETS.filter(m => 
+          m.state.toLowerCase() === locationProfile.state.toLowerCase()
+        );
+      }
+    }
+    
+    if (filteredMarkets.length === 0) {
+      filteredMarkets = MARKETS;
+    }
+
+    // 4. Run Recommendation calculations
     const recommendations = [];
 
     for (const crop of CROPS) {
@@ -98,13 +245,12 @@ export const analyze = async (req, res) => {
 
       const historicalData = HISTORICAL_PRICES.find(h => h.cropId === crop.id);
       
-      // Query live daily price entry for this crop to inject real-time values
+      // Query live daily price entry for this crop
       const dailyPrices = await DailyCropPrice.find({ cropId: crop.id });
       const currentAvgLivePrice = dailyPrices.length > 0
         ? dailyPrices.reduce((a, b) => a + b.pricePerQuintal, 0) / dailyPrices.length
         : (historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice);
 
-      // Create a dynamic historical data profile with live price injected
       const liveHistoricalData = historicalData ? {
         ...historicalData,
         monthlyAvgPrices: historicalData.monthlyAvgPrices.map((p, idx) => 
@@ -129,18 +275,15 @@ export const analyze = async (req, res) => {
       const risk = assessRiskLevel(crop, scores);
       const reasons = generateReasons(crop, scores, weatherSummary, harvestMonth);
 
-      // 3. Find nearby markets & calculate transport costs
-      const nearbyMarkets = MARKETS.map(market => {
-        const distance = getDistance(farmerLat, farmerLon, market.lat, market.lon);
-        // Estimate transport cost: ₹20 base + ₹4 per km per quintal approx
+      // Map to filtered APMC markets
+      const nearbyMarkets = filteredMarkets.map(market => {
+        const distance = getDistance(locationProfile.lat, locationProfile.lon, market.lat, market.lon);
         const unitTransportCost = 20 + distance * 4;
         const totalTransportCost = Math.round(((crop.yieldPerAcre.min + crop.yieldPerAcre.max) / 2) * land * (unitTransportCost / 10));
 
-        // Find live today's price in this specific market
         const liveMarketEntry = dailyPrices.find(p => p.marketId === market.id);
         const currentPrice = liveMarketEntry ? liveMarketEntry.pricePerQuintal : crop.avgMarketPrice;
 
-        // Predict future harvest price based on seasonal trend factor
         const currentMonthAvg = historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice;
         const harvestMonthAvg = historicalData ? historicalData.monthlyAvgPrices[harvestMonth - 1] : crop.avgMarketPrice;
         const trendMultiplier = currentMonthAvg > 0 ? (harvestMonthAvg / currentMonthAvg) : 1.0;
@@ -152,11 +295,18 @@ export const analyze = async (req, res) => {
           distance,
           currentPrice,
           predictedPrice,
-          transportCost: totalTransportCost
+          transportCost: totalTransportCost,
+          arrivalQuantity: liveMarketEntry?.arrivalQuantity || 120 + Math.round(Math.random() * 80), // tonnes
+          marketTrend: trendMultiplier > 1.05 ? 'Increasing' : trendMultiplier < 0.95 ? 'Decreasing' : 'Stable',
+          bestSellingWindow: harvestMonth === 10 || harvestMonth === 11 ? 'Late October (Diwali Festival)' : 'Mid month (Stable volume)'
         };
       })
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 5); // top 5 closest markets
+      .sort((a, b) => a.distance - b.distance); // sort nearest to farthest
+
+      const recommendedMarket = nearbyMarkets[0] || { name: 'Local Mandi', distance: 0, currentPrice: currentAvgLivePrice, predictedPrice: currentAvgLivePrice };
+
+      // Math updates for predictions
+      const profitPercentage = Math.round((economics.expectedProfit / economics.cultivationCost) * 100);
 
       recommendations.push({
         crop,
@@ -164,15 +314,21 @@ export const analyze = async (req, res) => {
         confidence: Math.round(compositeScore),
         risk,
         harvestDate: harvestDate.toISOString().slice(0, 10),
-        economics,
+        daysUntilHarvest: durationDays,
+        economics: {
+          ...economics,
+          profitPercentage
+        },
         reasons,
-        nearbyMarkets,
+        nearbyMarkets: nearbyMarkets.slice(0, 5), // top 5
+        recommendedMarket: recommendedMarket.name,
+        distanceToMarket: recommendedMarket.distance,
         priceTrend: liveHistoricalData ? liveHistoricalData.monthlyAvgPrices : crop.monthlyPriceTrends
       });
     }
 
-    // 4. Sort recommendations by score descending
-    recommendations.sort((a, b) => b.score - a.score);
+    // Sort by expected net profit descending
+    recommendations.sort((a, b) => b.economics.expectedProfit - a.economics.expectedProfit);
 
     // Limit to top 10 recommended crops
     const top10 = recommendations.slice(0, 10).map((rec, index) => ({
@@ -183,17 +339,7 @@ export const analyze = async (req, res) => {
     res.json({
       success: true,
       data: {
-        farmerProfile: {
-          state: req.body.state,
-          district: req.body.district,
-          taluk: req.body.taluk,
-          village: req.body.village,
-          landSize: land,
-          soilType,
-          irrigationAvailable,
-          waterSource,
-          farmingType
-        },
+        farmerProfile: locationProfile,
         weatherSummary,
         recommendations: top10,
         generatedAt: new Date().toISOString()
@@ -236,8 +382,6 @@ export const listMarkets = async (req, res) => {
 export const priceHistory = async (req, res) => {
   try {
     const { cropId } = req.params;
-    
-    // Attempt to merge live price from YESHWANTHPUR as the current month baseline
     const history = HISTORICAL_PRICES.find(h => h.cropId === cropId);
     if (!history) {
       return res.status(404).json({ success: false, message: 'Crop history not found' });
@@ -292,9 +436,31 @@ export const updateMarketPrice = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Crop ID, Market ID, and positive price are required.' });
     }
 
+    const crop = CROPS.find(c => c.id === cropId);
+    const market = MARKETS.find(m => m.id === marketId);
+    if (!crop || !market) {
+      return res.status(400).json({ success: false, message: 'Invalid crop or market ID.' });
+    }
+
+    const dateStr = new Date().toLocaleDateString('en-IN');
+    const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
     const entry = await DailyCropPrice.findOneAndUpdate(
-      { cropId, marketId },
-      { pricePerQuintal: Number(pricePerQuintal), lastUpdated: new Date() },
+      { cropId, marketId, variety: 'FAQ' },
+      {
+        cropName: crop.name,
+        marketName: market.name,
+        state: market.state,
+        district: market.district,
+        minPrice: Math.round(pricePerQuintal * 0.9),
+        maxPrice: Math.round(pricePerQuintal * 1.1),
+        modalPrice: Number(pricePerQuintal),
+        pricePerQuintal: Number(pricePerQuintal),
+        date: dateStr,
+        time: timeStr,
+        dataSource: 'Admin Manual Override',
+        lastUpdated: new Date()
+      },
       { upsert: true, new: true }
     );
 

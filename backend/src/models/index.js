@@ -580,11 +580,23 @@ export const MachineryBooking = mongoose.model('MachineryBooking', machineryBook
 
 const dailyCropPriceSchema = new Schema({
   cropId: { type: String, required: true, index: true },
+  cropName: { type: String, required: true },
+  variety: { type: String, default: 'FAQ' },
+  grade: { type: String, default: 'FAQ' },
   marketId: { type: String, required: true, index: true },
+  marketName: { type: String, required: true },
+  state: { type: String, required: true },
+  district: { type: String, required: true },
+  minPrice: { type: Number, required: true },
+  maxPrice: { type: Number, required: true },
+  modalPrice: { type: Number, required: true },
   pricePerQuintal: { type: Number, required: true },
+  date: { type: String, required: true },
+  time: { type: String },
+  dataSource: { type: String, default: 'AGMARKNET' },
   lastUpdated: { type: Date, default: Date.now }
 }, baseOptions);
 
-dailyCropPriceSchema.index({ cropId: 1, marketId: 1 }, { unique: true });
+dailyCropPriceSchema.index({ cropId: 1, marketId: 1, variety: 1 }, { unique: true });
 
 export const DailyCropPrice = mongoose.model('DailyCropPrice', dailyCropPriceSchema);
