@@ -157,7 +157,26 @@ async function resolveLocationContext(req, body) {
     }
   }
 
-  // Default fallback coords
+  // 6. Dynamic district centroid coordinate resolver if lat/lon is still missing
+  if ((resolved.state || resolved.district) && (!resolved.lat || !resolved.lon)) {
+    try {
+      const searchQuery = encodeURIComponent(`${resolved.district || ''}, ${resolved.state || ''}, India`);
+      const searchUrl = `https://nominatim.openstreetmap.org/search?q=${searchQuery}&format=json&limit=1`;
+      const searchRes = await fetch(searchUrl);
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData && searchData[0]) {
+          resolved.lat = Number(searchData[0].lat);
+          resolved.lon = Number(searchData[0].lon);
+          resolved.source = 'Nominatim District Search';
+        }
+      }
+    } catch (searchErr) {
+      console.warn('[Location] Nominatim search failed:', searchErr.message);
+    }
+  }
+
+  // Default fallback coords (Bangalore, Karnataka)
   if (!resolved.lat || !resolved.lon) {
     resolved.lat = 12.9716;
     resolved.lon = 77.5946;

@@ -201,9 +201,14 @@ export function calculateEconomics(crop, landSizeAcres, harvestMonth, historical
   const yields = (crop.yieldPerAcre.min + crop.yieldPerAcre.max) / 2;
   const totalYield = yields * landSizeAcres;
   
-  const estimatedPrice = historicalData 
+  let estimatedPrice = historicalData 
     ? historicalData.monthlyAvgPrices[harvestMonth - 1] 
     : crop.avgMarketPrice;
+
+  // Scale down estimatedPrice if crop is coconut and price is baseline scale (> 100)
+  if (crop.id === 'coconut' && estimatedPrice > 100) {
+    estimatedPrice = estimatedPrice / 100;
+  }
 
   const expectedRevenue = totalYield * estimatedPrice;
   const cultivationCost = crop.costPerAcre.total * landSizeAcres;
