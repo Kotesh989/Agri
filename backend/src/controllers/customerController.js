@@ -288,10 +288,17 @@ export const listCustomers = async (req, res) => {
       filter.$or = [{ name: regex }, { mobileNumber: regex }, { email: regex }];
     }
 
-    const customers = await Customer.find(filter).sort({ createdAt: -1 });
+    const customers = await Customer.find(filter).populate('farmerUserId').sort({ createdAt: -1 });
+    const activeCustomers = customers.filter((customer) => {
+      if (customer.farmerUserId) {
+        return customer.farmerUserId.isActive !== false;
+      }
+      return true;
+    });
+
     res.json({
       success: true,
-      data: customers.map((customer) => ({ ...customer.toJSON(), ...getCreditSnapshot(customer) })),
+      data: activeCustomers.map((customer) => ({ ...customer.toJSON(), ...getCreditSnapshot(customer) })),
     });
   } catch (error) {
     console.error('List customers error:', error);
