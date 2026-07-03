@@ -117,7 +117,6 @@ router.get('/location/countries', authenticate, locationController.getCountries)
 router.get('/location/states', authenticate, locationController.getStates);
 router.get('/location/districts', authenticate, locationController.getDistricts);
 router.get('/location/taluks', authenticate, locationController.getTaluks);
-router.get('/location/hoblis', authenticate, locationController.getHoblis);
 router.get('/location/villages', authenticate, locationController.getVillages);
 router.get('/location/lookup-pin/:pincode', authenticate, locationController.lookupPincode);
 

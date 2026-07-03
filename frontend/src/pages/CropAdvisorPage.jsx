@@ -11,7 +11,7 @@ import { SearchableSelect } from '../components/SearchableSelect';
 import { 
   Sprout, MapPin, LandPlot, Droplets, Info, AlertTriangle, 
   CheckCircle, ArrowRight, CloudSun, TrendingUp, DollarSign, 
-  HelpCircle, ChevronDown, ChevronUp, Star, RefreshCw, Landmark, ShieldCheck
+  HelpCircle, ChevronDown, ChevronUp, Star, RefreshCw
 } from 'lucide-react';
 import { Bar, Line, Radar } from 'react-chartjs-2';
 import { 
@@ -44,17 +44,8 @@ ChartJS.register(
 );
 
 const SOIL_TYPES = ['Black', 'Red', 'Loamy', 'Sandy', 'Clay', 'Alluvial', 'Laterite', 'Sandy Loam'];
-const LAND_TYPES = ['Dry land', 'Wet land', 'Rainfed', 'Irrigated', 'Wasteland'];
-const IRRIGATION_TYPES = ['Drip', 'Sprinkler', 'Flood', 'None'];
 const WATER_SOURCES = ['Borewell', 'Canal', 'Rain-fed', 'River', 'Tank'];
 const FARMING_TYPES = ['Organic', 'Traditional', 'Mixed'];
-const CROP_CATEGORIES = ['VEGETABLE', 'FRUIT', 'COMMERCIAL', 'CEREAL', 'SPICE', 'OILSEED', 'PULSE'];
-const CROP_VARIETIES = ['FAQ', 'Hybrid', 'Local', 'Desi'];
-const SEED_VARIETIES = ['F1', 'Organic', 'Certified', 'Traditional'];
-
-const GOVT_SCHEMES = ['PM-KISAN', 'Pradhan Mantri Fasal Bima Yojana (PMFBY)', 'Soil Health Card Scheme', 'Rastriya Krishi Vikas Yojana'];
-const COOPERATIVE_BANKS = ['NABARD', 'State Bank of India (Agriculture)', 'Canara Bank Rural', 'District Cooperative Bank'];
-const AGR_DEPARTMENTS = ['Raitha Mitra Kendra (Karnataka)', 'Krishi Vigyan Kendra (KVK)', 'Department of Agriculture'];
 
 export const CropAdvisorPage = () => {
   const { user } = useAuth();
@@ -62,36 +53,25 @@ export const CropAdvisorPage = () => {
   const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
-    country: 'India',
     state: '',
     district: '',
     taluk: '',
-    hobli: '',
     village: '',
     pincode: '',
     lat: '',
     lon: '',
     landSize: 1,
     soilType: 'Loamy',
-    landType: 'Irrigated',
-    irrigationType: 'Drip',
+    irrigationAvailable: false,
     waterSource: 'Borewell',
     farmingType: 'Traditional',
-    cropCategory: 'VEGETABLE',
-    cropVariety: 'FAQ',
-    seedVariety: 'Certified',
-    searchOutsideArea: false,
-    scheme: 'PM-KISAN',
-    bank: 'NABARD',
-    department: 'Krishi Vigyan Kendra (KVK)'
+    searchOutsideArea: false
   });
 
-  // Options state lists for dropdowns
-  const [countriesList] = useState(['India']);
+  // Location dropdown lists
   const [statesList, setStatesList] = useState([]);
   const [districtsList, setDistrictsList] = useState([]);
   const [taluksList, setTaluksList] = useState([]);
-  const [hoblisList, setHoblisList] = useState([]);
   const [villagesList, setVillagesList] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -102,15 +82,15 @@ export const CropAdvisorPage = () => {
 
   // Load States on mount
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchStates = async () => {
       try {
         const stateRes = await api.get('/location/states?country=India');
         setStatesList(stateRes.data.data || []);
       } catch (err) {
-        console.error('Error fetching initial states:', err);
+        console.error('Error fetching states:', err);
       }
     };
-    fetchInitialData();
+    fetchStates();
   }, []);
 
   // Autofill form from user profile on mount
@@ -160,24 +140,7 @@ export const CropAdvisorPage = () => {
     loadTaluks();
   }, [formData.district]);
 
-  // Load Hoblis when Taluk changes
-  useEffect(() => {
-    if (!formData.taluk) {
-      setHoblisList([]);
-      return;
-    }
-    const loadHoblis = async () => {
-      try {
-        const res = await api.get(`/location/hoblis?taluk=${formData.taluk}`);
-        setHoblisList(res.data.data || []);
-      } catch (err) {
-        showError(err, 'Failed to fetch hoblis');
-      }
-    };
-    loadHoblis();
-  }, [formData.taluk]);
-
-  // Load Villages when Hobli/Taluk changes
+  // Load Villages when Taluk changes
   useEffect(() => {
     if (!formData.taluk) {
       setVillagesList([]);
@@ -185,16 +148,14 @@ export const CropAdvisorPage = () => {
     }
     const loadVillages = async () => {
       try {
-        const params = { taluk: formData.taluk };
-        if (formData.hobli) params.hobli = formData.hobli;
-        const res = await api.get('/location/villages', { params });
+        const res = await api.get(`/location/villages?taluk=${formData.taluk}`);
         setVillagesList(res.data.data.map(v => v.name) || []);
       } catch (err) {
-        showError(err, 'Failed to fetch villages');
+        console.warn('Failed to fetch villages:', err.message);
       }
     };
     loadVillages();
-  }, [formData.taluk, formData.hobli]);
+  }, [formData.taluk]);
 
   // PIN Code Lookup Trigger
   const handlePincodeChange = async (val) => {
@@ -209,7 +170,6 @@ export const CropAdvisorPage = () => {
             state: loc.state,
             district: loc.district,
             taluk: loc.taluk,
-            hobli: loc.hobli || '',
             village: loc.village
           }));
           addNotification('Location auto-resolved from PIN code!', 'success');
@@ -370,7 +330,7 @@ export const CropAdvisorPage = () => {
                 {t('cropAdvisor.title') || 'AI Crop Advisor'}
               </h1>
               <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-                {t('cropAdvisor.subtitle') || 'Intelligent cascading dropdowns, auto address detection, and daily market synchronizations.'}
+                {t('cropAdvisor.subtitle') || 'Intelligent crop recommendations based on weather, market pricing, and local constraints.'}
               </p>
             </div>
             
@@ -389,26 +349,19 @@ export const CropAdvisorPage = () => {
             <div className="lg:col-span-4 card h-fit space-y-4">
               <h2 className="text-lg font-extrabold flex items-center gap-2 border-b pb-2 text-slate-800 dark:text-gray-200">
                 <LandPlot className="w-5 h-5 text-emerald-600" />
-                {t('cropAdvisor.inputTitle') || 'Farm & Sowing Profile'}
+                {t('cropAdvisor.inputTitle') || 'Farm & Location'}
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 1. Location Section (Cascading Dropdowns) */}
+                {/* Location Section */}
                 <div className="space-y-3">
-                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">1. Location Details</span>
+                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">Location details</span>
                   
-                  <SearchableSelect 
-                    label="Country" 
-                    options={countriesList} 
-                    value={formData.country} 
-                    onChange={(val) => setFormData({ ...formData, country: val })} 
-                  />
-
                   <SearchableSelect 
                     label="State" 
                     options={statesList} 
                     value={formData.state} 
-                    onChange={(val) => setFormData({ ...formData, state: val, district: '', taluk: '', hobli: '', village: '' })} 
+                    onChange={(val) => setFormData({ ...formData, state: val, district: '', taluk: '', village: '' })} 
                   />
 
                   <SearchableSelect 
@@ -416,7 +369,7 @@ export const CropAdvisorPage = () => {
                     options={districtsList} 
                     value={formData.district} 
                     disabled={!formData.state}
-                    onChange={(val) => setFormData({ ...formData, district: val, taluk: '', hobli: '', village: '' })} 
+                    onChange={(val) => setFormData({ ...formData, district: val, taluk: '', village: '' })} 
                   />
 
                   <SearchableSelect 
@@ -424,15 +377,7 @@ export const CropAdvisorPage = () => {
                     options={taluksList} 
                     value={formData.taluk} 
                     disabled={!formData.district}
-                    onChange={(val) => setFormData({ ...formData, taluk: val, hobli: '', village: '' })} 
-                  />
-
-                  <SearchableSelect 
-                    label="Hobli (if applicable)" 
-                    options={hoblisList} 
-                    value={formData.hobli} 
-                    disabled={!formData.taluk || hoblisList.length === 0}
-                    onChange={(val) => setFormData({ ...formData, hobli: val, village: '' })} 
+                    onChange={(val) => setFormData({ ...formData, taluk: val, village: '' })} 
                   />
 
                   <SearchableSelect 
@@ -493,95 +438,59 @@ export const CropAdvisorPage = () => {
                   </div>
                 </div>
 
-                {/* 2. Farm Details */}
+                {/* Farm Details */}
                 <div className="space-y-3 pt-2 border-t dark:border-gray-800">
-                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">2. Soil & Farm Details</span>
+                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">Farm constraints</span>
                   
-                  <div className="grid grid-cols-2 gap-2">
-                    <SearchableSelect 
-                      label="Soil Type" 
-                      options={SOIL_TYPES} 
-                      value={formData.soilType} 
-                      onChange={(val) => setFormData({ ...formData, soilType: val })} 
-                    />
-                    <SearchableSelect 
-                      label="Land Type" 
-                      options={LAND_TYPES} 
-                      value={formData.landType} 
-                      onChange={(val) => setFormData({ ...formData, landType: val })} 
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <SearchableSelect 
-                      label="Irrigation Type" 
-                      options={IRRIGATION_TYPES} 
-                      value={formData.irrigationType} 
-                      onChange={(val) => setFormData({ ...formData, irrigationType: val })} 
-                    />
-                    <SearchableSelect 
-                      label="Water Source" 
-                      options={WATER_SOURCES} 
-                      value={formData.waterSource} 
-                      onChange={(val) => setFormData({ ...formData, waterSource: val })} 
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <SearchableSelect 
-                      label="Farming Type" 
-                      options={FARMING_TYPES} 
-                      value={formData.farmingType} 
-                      onChange={(val) => setFormData({ ...formData, farmingType: val })} 
-                    />
-                    <div>
-                      <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">Land Size (Acres)</label>
-                      <input 
-                        type="number" 
-                        min="0.1" 
-                        step="0.1"
-                        value={formData.landSize}
-                        onChange={(e) => setFormData({ ...formData, landSize: e.target.value })}
-                        className="input py-1.5 text-sm" 
-                        required 
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Crop details */}
-                <div className="space-y-3 pt-2 border-t dark:border-gray-800">
-                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">3. Seed & Crop Variety</span>
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    <SearchableSelect 
-                      label="Crop Category" 
-                      options={CROP_CATEGORIES} 
-                      value={formData.cropCategory} 
-                      onChange={(val) => setFormData({ ...formData, cropCategory: val })} 
-                    />
-                    <SearchableSelect 
-                      label="Crop Variety" 
-                      options={CROP_VARIETIES} 
-                      value={formData.cropVariety} 
-                      onChange={(val) => setFormData({ ...formData, cropVariety: val })} 
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">Land Size (Acres)</label>
+                    <input 
+                      type="number" 
+                      min="0.1" 
+                      step="0.1"
+                      value={formData.landSize}
+                      onChange={(e) => setFormData({ ...formData, landSize: e.target.value })}
+                      className="input py-1.5 text-sm" 
+                      required 
                     />
                   </div>
 
                   <SearchableSelect 
-                    label="Seed Variety" 
-                    options={SEED_VARIETIES} 
-                    value={formData.seedVariety} 
-                    onChange={(val) => setFormData({ ...formData, seedVariety: val })} 
+                    label="Soil Type" 
+                    options={SOIL_TYPES} 
+                    value={formData.soilType} 
+                    onChange={(val) => setFormData({ ...formData, soilType: val })} 
                   />
-                </div>
 
-                {/* 4. Gov & Support */}
-                <div className="space-y-3 pt-2 border-t dark:border-gray-800">
-                  <span className="text-xs font-black uppercase text-slate-400 tracking-wider">4. Administrative Support</span>
-                  <SearchableSelect label="Govt Schemes" options={GOVT_SCHEMES} value={formData.scheme} onChange={(val) => setFormData({ ...formData, scheme: val })} />
-                  <SearchableSelect label="Supported Bank" options={COOPERATIVE_BANKS} value={formData.bank} onChange={(val) => setFormData({ ...formData, bank: val })} />
-                  <SearchableSelect label="Agr Department" options={AGR_DEPARTMENTS} value={formData.department} onChange={(val) => setFormData({ ...formData, department: val })} />
+                  <div className="flex items-center gap-2 py-1">
+                    <input 
+                      type="checkbox"
+                      id="irrigation"
+                      checked={formData.irrigationAvailable}
+                      onChange={(e) => setFormData({ ...formData, irrigationAvailable: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <label htmlFor="irrigation" className="text-xs font-semibold select-none cursor-pointer">
+                      {t('cropAdvisor.irrigation') || 'Irrigation/Water Available'}
+                    </label>
+                  </div>
+
+                  {formData.irrigationAvailable && (
+                    <div className="grid grid-cols-2 gap-2 animate-slide-down">
+                      <SearchableSelect 
+                        label="Water Source" 
+                        options={WATER_SOURCES} 
+                        value={formData.waterSource} 
+                        onChange={(val) => setFormData({ ...formData, waterSource: val })} 
+                      />
+                      <SearchableSelect 
+                        label="Farming Type" 
+                        options={FARMING_TYPES} 
+                        value={formData.farmingType} 
+                        onChange={(val) => setFormData({ ...formData, farmingType: val })} 
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Outside Mandis Filter Option */}
