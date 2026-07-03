@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agri-smart-pwa-v2';
+const CACHE_NAME = 'agri-smart-pwa-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -35,6 +35,18 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Intercept and Cache strategy
 self.addEventListener('fetch', (event) => {
+  // Handle HTML navigation requests by serving index.html (SPA fallback)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html')
+        .then((cachedResponse) => {
+          return cachedResponse || fetch(event.request);
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   // Only handle GET requests for caching
   if (event.request.method !== 'GET') return;
 
