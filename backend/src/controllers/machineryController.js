@@ -28,7 +28,7 @@ export const createMachinery = async (req, res) => {
     }
 
     const item = await Machinery.create({
-      ownerId: req.user.id,
+      ownerId: req.user.userId,
       name,
       type,
       rentalPricePerDay: Number(rentalPricePerDay),
@@ -65,7 +65,7 @@ export const createBooking = async (req, res) => {
 
     const booking = await MachineryBooking.create({
       machineryId,
-      renterId: req.user.id,
+      renterId: req.user.userId,
       startDate: start,
       endDate: end,
       totalAmount,
@@ -95,7 +95,7 @@ export const updateBookingStatus = async (req, res) => {
     }
 
     // Check if user is owner of the machinery or admin
-    if (String(booking.machineryId.ownerId) !== String(req.user.id) && req.user.role !== 'ADMIN') {
+    if (String(booking.machineryId.ownerId) !== String(req.user.userId) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Not authorized to manage this booking.' });
     }
 
@@ -115,7 +115,7 @@ export const listBookings = async (req, res) => {
 
     if (req.user.role === 'FARMER') {
       // Farmer sees their own bookings
-      filter.renterId = req.user.id;
+      filter.renterId = req.user.userId;
     } else if (req.user.role === 'ADMIN') {
       // Admin sees everything
     }
@@ -149,13 +149,13 @@ export const addReview = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
 
-    if (String(booking.renterId) !== String(req.user.id)) {
+    if (String(booking.renterId) !== String(req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Only the renter can review this booking.' });
     }
 
     const machinery = await Machinery.findById(booking.machineryId.id);
     machinery.ratings.push({
-      renterId: req.user.id,
+      renterId: req.user.userId,
       rating: Number(rating),
       comment,
       createdAt: new Date(),

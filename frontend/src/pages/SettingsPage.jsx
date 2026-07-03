@@ -28,6 +28,7 @@ export const SettingsPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState([]);
 
   const { addNotification } = useNotificationContext();
   const { t } = useTranslation();
@@ -42,6 +43,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     fetchSettings();
+    fetchUsers();
   }, []);
 
   const fetchSettings = async () => {
@@ -52,6 +54,25 @@ export const SettingsPage = () => {
       showError(error, 'Error fetching settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get('/auth/users');
+      setUsers(res.data.data || []);
+    } catch (err) {
+      console.error('Error fetching users', err);
+    }
+  };
+
+  const handleToggleUser = async (userId) => {
+    try {
+      const res = await api.patch(`/auth/users/${userId}/toggle`);
+      addNotification(res.data.message || 'User status updated', 'success');
+      fetchUsers();
+    } catch (error) {
+      showError(error, 'Failed to update user status');
     }
   };
 
@@ -255,6 +276,49 @@ export const SettingsPage = () => {
                 <p>{settings.bankName || 'Bank name'}</p>
               </div>
             </aside>
+          </div>
+
+          <div className="card mt-6 max-w-5xl">
+            <h2 className="text-xl font-bold mb-4">Farmer Verification Requests</h2>
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email / Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.filter(u => u.role === 'FARMER').map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.name}</td>
+                      <td>{u.email || u.mobileNumber}</td>
+                      <td>
+                        <span className={`badge ${u.isActive ? 'badge-green' : 'badge-yellow'}`}>
+                          {u.isActive ? 'Active' : 'Pending Verification'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleUser(u.id)}
+                          className={`btn btn-sm ${u.isActive ? 'btn-danger' : 'btn-primary'}`}
+                        >
+                          {u.isActive ? 'Deactivate' : 'Approve & Activate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.filter(u => u.role === 'FARMER').length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="text-center text-slate-500 py-4">No farmer accounts found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </main>
       </div>

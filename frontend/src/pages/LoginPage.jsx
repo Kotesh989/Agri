@@ -173,13 +173,13 @@ export const LoginPage = () => {
         <form onSubmit={otpMode && portal === 'farmer' ? handleVerifyOtp : handleSubmit} className="space-y-5">
           {!otpMode && (
           <div className="form-group">
-            <label className="form-label">{portal === 'farmer' ? 'Farmer Email' : t('auth.adminEmail')}</label>
+            <label className="form-label">{portal === 'farmer' ? 'Farmer Email or Mobile Number' : t('auth.adminEmail')}</label>
             <input 
-              type="email" 
+              type={portal === 'farmer' ? 'text' : 'email'} 
               value={email} 
               onChange={(e) => setEmail(e.target.value)} 
               className="input" 
-              placeholder={portal === 'farmer' ? 'farmer@example.com' : 'admin@example.com'}
+              placeholder={portal === 'farmer' ? 'Enter email or phone' : 'admin@example.com'}
               required 
             />
           </div>

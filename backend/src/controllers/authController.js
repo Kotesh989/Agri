@@ -155,6 +155,7 @@ export const registerFarmer = async (req, res) => {
       state,
       preferredLanguage,
       profilePhoto,
+      isActive: false, // set false for admin approval flow
     });
     res.status(201).json({ success: true, message: 'Farmer account created successfully', data: { user: publicUser(user), customer } });
   } catch (error) {
@@ -181,8 +182,11 @@ const loginWithRole = async (req, res, expectedRole) => {
         { mobileNumber: loginId },
       ],
     });
-    if (!user || !user.isActive || (expectedRole && user.role !== expectedRole)) {
+    if (!user || (expectedRole && user.role !== expectedRole)) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: 'Your account registration is pending admin verification. Please contact the shop owner.' });
     }
 
     const isPasswordValid = user.password ? await comparePassword(password, user.password) : false;

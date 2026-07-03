@@ -188,6 +188,7 @@ export const FarmerDuesPage = () => {
   const [exporting, setExporting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [settings, setSettings] = useState(null);
   const { addNotification } = useNotificationContext();
   const { confirm } = useConfirm();
   const debouncedFilters = useDebounce(filters, 400);
@@ -205,6 +206,19 @@ export const FarmerDuesPage = () => {
   useEffect(() => {
     fetchSummary();
   }, [debouncedFilters]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await api.get('/settings');
+      setSettings(res.data.data || null);
+    } catch (err) {
+      console.error('Error fetching settings', err);
+    }
+  };
 
   const fetchDues = async () => {
     try {
@@ -456,59 +470,62 @@ export const FarmerDuesPage = () => {
                   <tr><td colSpan="11">{t('common.loading')}</td></tr>
                 ) : dues.length === 0 ? (
                   <tr><td colSpan="11">{t('farmerDues.empty')}</td></tr>
-                ) : dues.map((due) => (
-                  <tr key={due.id}>
-                    <td className="font-semibold">{due.farmerName}</td>
-                    <td>{due.phoneNumber}</td>
-                    <td>{due.village}</td>
-                    <td>{formatCurrency(due.dueAmount)}</td>
-                    <td>{formatCurrency(due.paidAmount)}</td>
-                    <td>{formatCurrency(due.remainingAmount)}</td>
-                    <td>
-                      {(() => {
-                        const paidPercent = due.dueAmount > 0 ? Math.min((due.paidAmount / due.dueAmount) * 100, 100) : 0;
-                        const barColor = paidPercent >= 100 ? '#10b981' : paidPercent >= 50 ? '#3b82f6' : paidPercent >= 1 ? '#f59e0b' : '#e2e8f0';
-                        return (
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-20 rounded-full bg-slate-200 dark:bg-gray-700">
-                              <div className="h-2 rounded-full transition-all" style={{ width: `${paidPercent}%`, backgroundColor: barColor }} />
+                ) : dues.map((due) => {
+                  const messageText = `Dear ${due.farmerName}, you have a pending due of ₹${due.remainingAmount} at ${settings?.shopName || 'our shop'}. Kindly clear it at your earliest convenience. Thank you.`;
+                  return (
+                    <tr key={due.id}>
+                      <td className="font-semibold">{due.farmerName}</td>
+                      <td>{due.phoneNumber}</td>
+                      <td>{due.village}</td>
+                      <td>{formatCurrency(due.dueAmount)}</td>
+                      <td>{formatCurrency(due.paidAmount)}</td>
+                      <td>{formatCurrency(due.remainingAmount)}</td>
+                      <td>
+                        {(() => {
+                          const paidPercent = due.dueAmount > 0 ? Math.min((due.paidAmount / due.dueAmount) * 100, 100) : 0;
+                          const barColor = paidPercent >= 100 ? '#10b981' : paidPercent >= 50 ? '#3b82f6' : paidPercent >= 1 ? '#f59e0b' : '#e2e8f0';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-20 rounded-full bg-slate-200 dark:bg-gray-700">
+                                <div className="h-2 rounded-full transition-all" style={{ width: `${paidPercent}%`, backgroundColor: barColor }} />
+                              </div>
+                              <span className="text-xs font-medium text-slate-500">{Math.round(paidPercent)}%</span>
                             </div>
-                            <span className="text-xs font-medium text-slate-500">{Math.round(paidPercent)}%</span>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td><span className={statusBadge(due.status)}>{t(`farmerDues.status.${due.status}`)}</span></td>
-                    <td>
-                      {due.status === 'Paid'
-                        ? <span className="badge badge-green">✓ Cleared</span>
-                        : (() => { const age = getDueAge(due.createdAt); return <span className={age.className}><Clock className="mr-1 inline h-3 w-3" />{age.label}</span>; })()
-                      }
-                    </td>
-                    <td>{formatDate(due.createdAt)}</td>
-                    <td>
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setViewingDue(due)} title={t('common.view')}><Eye className="h-4 w-4" /></button>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditForm(due)} title={t('common.edit')}><Edit className="h-4 w-4" /></button>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPaymentDue(due); setPaymentAmount(''); }} disabled={Number(due.remainingAmount || 0) <= 0} title={t('farmerDues.recordPayment')}><WalletCards className="h-4 w-4" /></button>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/installment-planner?dueId=${due.id}`)} title="Installment Planner"><Calendar className="h-4 w-4" /></button>
-                        {Number(due.remainingAmount || 0) > 0 && (
-                          <a
-                            href={`https://wa.me/91${due.phoneNumber}?text=${encodeURIComponent(`Dear ${due.farmerName}, you have a pending due of ₹${due.remainingAmount} at our shop. Kindly clear it at your earliest convenience. Thank you.`)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-sm"
-                            style={{ backgroundColor: '#25D366', color: '#fff' }}
-                            title="Send WhatsApp Reminder"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </a>
-                        )}
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(due)} title={t('common.delete')}><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          );
+                        })()}
+                      </td>
+                      <td><span className={statusBadge(due.status)}>{t(`farmerDues.status.${due.status}`)}</span></td>
+                      <td>
+                        {due.status === 'Paid'
+                          ? <span className="badge badge-green">✓ Cleared</span>
+                          : (() => { const age = getDueAge(due.createdAt); return <span className={age.className}><Clock className="mr-1 inline h-3 w-3" />{age.label}</span>; })()
+                        }
+                      </td>
+                      <td>{formatDate(due.createdAt)}</td>
+                      <td>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setViewingDue(due)} title={t('common.view')}><Eye className="h-4 w-4" /></button>
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditForm(due)} title={t('common.edit')}><Edit className="h-4 w-4" /></button>
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPaymentDue(due); setPaymentAmount(''); }} disabled={Number(due.remainingAmount || 0) <= 0} title={t('farmerDues.recordPayment')}><WalletCards className="h-4 w-4" /></button>
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/installment-planner?dueId=${due.id}`)} title="Installment Planner"><Calendar className="h-4 w-4" /></button>
+                          {Number(due.remainingAmount || 0) > 0 && (
+                            <a
+                              href={`https://wa.me/91${due.phoneNumber}?text=${encodeURIComponent(messageText)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-sm"
+                              style={{ backgroundColor: '#25D366', color: '#fff' }}
+                              title="Send WhatsApp Reminder"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </a>
+                          )}
+                          <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDelete(due)} title={t('common.delete')}><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
