@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { connectMongo } from './db/mongo.js';
 import { seedMongo } from './db/seed.js';
 import { startDailyPriceSyncScheduler } from './services/priceSyncService.js';
+import { getOrSeedMandiMarkets } from './services/locationService.js';
 
 dotenv.config();
 
@@ -80,6 +81,7 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     await connectMongo();
+    await getOrSeedMandiMarkets();
     if (process.env.RUN_SEED_ON_START === 'true') {
       await seedMongo();
     }

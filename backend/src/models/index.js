@@ -600,3 +600,29 @@ const dailyCropPriceSchema = new Schema({
 dailyCropPriceSchema.index({ cropId: 1, marketId: 1, variety: 1 }, { unique: true });
 
 export const DailyCropPrice = mongoose.model('DailyCropPrice', dailyCropPriceSchema);
+
+const locationNodeSchema = new Schema({
+  name: { type: String, required: true },
+  type: { type: String, enum: ['STATE', 'DISTRICT', 'TALUK', 'VILLAGE'], required: true },
+  parentId: { type: Schema.Types.ObjectId, ref: 'LocationNode', index: true },
+  pincode: { type: String, index: true },
+  lat: { type: Number },
+  lon: { type: Number }
+}, baseOptions);
+
+locationNodeSchema.index({ name: 1, type: 1, parentId: 1 }, { unique: true });
+
+export const LocationNode = mongoose.model('LocationNode', locationNodeSchema);
+
+const mandiMarketSchema = new Schema({
+  marketId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  state: { type: String, required: true },
+  district: { type: String, required: true },
+  lat: { type: Number, required: true },
+  lon: { type: Number, required: true }
+}, baseOptions);
+
+mandiMarketSchema.index({ state: 1, district: 1 });
+
+export const MandiMarket = mongoose.model('MandiMarket', mandiMarketSchema);

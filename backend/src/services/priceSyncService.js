@@ -1,6 +1,5 @@
-import { DailyCropPrice } from '../models/index.js';
+import { DailyCropPrice, MandiMarket } from '../models/index.js';
 import { CROPS } from '../data/cropDatabase.js';
-import { MARKETS } from '../data/marketDatabase.js';
 import { HISTORICAL_PRICES } from '../data/historicalPrices.js';
 
 // Setup background interval execution (every 24 hours starting at 2 AM)
@@ -48,7 +47,6 @@ export async function syncDailyPrices() {
 
 // Fetch live APMC mandi prices from data.gov.in APIs
 async function fetchLivePricesFromGovernmentAPI(apiKey) {
-  // data.gov.in current daily agricultural commodity price resource ID
   const resourceId = '9ef842f8-9a2f-4404-aa43-6c1b83d1c1d7';
   const url = `https://api.data.gov.in/resource/${resourceId}?api-key=${apiKey}&format=json&limit=100`;
 
@@ -65,24 +63,25 @@ async function fetchLivePricesFromGovernmentAPI(apiKey) {
 
   const dateStr = new Date().toISOString().slice(0, 10);
   const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  
+  const markets = await MandiMarket.find();
   let count = 0;
 
   for (const record of records) {
-    // Map API fields (State, District, Market, Commodity, Variety, Grade, Min_Price, Max_Price, Modal_Price)
     const apiCropName = record.commodity || record.Commodity || '';
     const crop = findCropByAPIName(apiCropName);
-    if (!crop) continue; // Skip if it's not a crop we track in our database
+    if (!crop) continue;
 
     const apiMarketName = record.market || record.Market || '';
-    const market = findMarketByAPIName(apiMarketName);
-    if (!market) continue; // Skip if it's not a mandi we track
+    const market = findMarketByAPIName(apiMarketName, markets);
+    if (!market) continue;
 
     const min = Number(record.min_price || record.Min_Price || 0);
     const max = Number(record.max_price || record.Max_Price || 0);
     const modal = Number(record.modal_price || record.Modal_Price || 0);
     if (!modal) continue;
 
-    const query = { cropId: crop.id, marketId: market.id, variety: record.variety || 'FAQ' };
+    const query = { cropId: crop.id, marketId: market.marketId, variety: record.variety || 'FAQ' };
     const update = {
       cropName: crop.name,
       marketName: market.name,
@@ -113,20 +112,20 @@ async function runSeasonalPriceSimulation() {
   const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   let count = 0;
 
+  const markets = await MandiMarket.find();
   for (const crop of CROPS) {
     const priceProfile = HISTORICAL_PRICES.find(h => h.cropId === crop.id);
     const baseMonthlyPrice = priceProfile 
       ? priceProfile.monthlyAvgPrices[currentMonth - 1] 
       : crop.avgMarketPrice;
 
-    for (const market of MARKETS) {
-      // Add day-to-day random noise (from -2% to +2%)
+    for (const market of markets) {
       const dailyNoise = 0.98 + Math.random() * 0.04;
       const modal = Math.round(baseMonthlyPrice * dailyNoise);
       const min = Math.round(modal * 0.9);
       const max = Math.round(modal * 1.1);
 
-      const query = { cropId: crop.id, marketId: market.id, variety: 'FAQ' };
+      const query = { cropId: crop.id, marketId: market.marketId, variety: 'FAQ' };
       const update = {
         cropName: crop.name,
         marketName: market.name,
@@ -159,9 +158,9 @@ function findCropByAPIName(apiName) {
   });
 }
 
-function findMarketByAPIName(apiName) {
+function findMarketByAPIName(apiName, marketsList) {
   const name = apiName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return MARKETS.find(m => {
+  return marketsList.find(m => {
     const mName = m.name.toLowerCase().replace(/[^a-z0-9]/g, '');
     return name.includes(mName) || mName.includes(name);
   });

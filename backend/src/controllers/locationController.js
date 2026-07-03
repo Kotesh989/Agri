@@ -1,13 +1,15 @@
-import { LOCATIONS, resolvePincode } from '../data/locationDatabase.js';
+import { LocationNode } from '../models/index.js';
+import { resolvePincode } from '../data/locationDatabase.js';
+import { getOrSeedStates, getOrSeedDistricts, resolveOrSeedLocationContext } from '../services/locationService.js';
 
 const setCacheHeaders = (res) => {
-  res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+  res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
 };
 
 export const getCountries = async (req, res) => {
   try {
     setCacheHeaders(res);
-    res.json({ success: true, data: LOCATIONS.countries });
+    res.json({ success: true, data: ['India'] });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error retrieving countries' });
   }
@@ -15,79 +17,100 @@ export const getCountries = async (req, res) => {
 
 export const getStates = async (req, res) => {
   try {
-    const { country = 'India' } = req.query;
-    const statesList = LOCATIONS.states[country] || [];
+    const states = await getOrSeedStates();
     setCacheHeaders(res);
-    res.json({ success: true, data: statesList });
+    res.json({ success: true, data: states });
   } catch (error) {
+    console.error('Error retrieving states:', error);
     res.status(500).json({ success: false, message: 'Error retrieving states' });
   }
 };
 
 export const getDistricts = async (req, res) => {
   try {
-    const { state } = req.query;
-    if (!state) {
-      return res.status(400).json({ success: false, message: 'State parameter is required' });
-    }
-    const districtsList = LOCATIONS.districts[state] || [];
-    
-    const { search = '' } = req.query;
-    let filtered = [...districtsList];
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(d => d.toLowerCase().includes(q));
+    const { stateId, state } = req.query;
+
+    let targetStateNode = null;
+    if (stateId) {
+      targetStateNode = await LocationNode.findById(stateId);
+    } else if (state) {
+      targetStateNode = await LocationNode.findOne({ name: { $regex: new RegExp(`^${state}$`, 'i') }, type: 'STATE' });
     }
 
+    if (!targetStateNode) {
+      // Return empty if no state matched
+      return res.json({ success: true, data: [] });
+    }
+
+    const districts = await getOrSeedDistricts(targetStateNode._id);
     setCacheHeaders(res);
-    res.json({ success: true, data: filtered });
+    res.json({ success: true, data: districts });
   } catch (error) {
+    console.error('Error retrieving districts:', error);
     res.status(500).json({ success: false, message: 'Error retrieving districts' });
   }
 };
 
 export const getTaluks = async (req, res) => {
   try {
-    const { district } = req.query;
-    if (!district) {
-      return res.status(400).json({ success: false, message: 'District parameter is required' });
-    }
-    const taluksList = LOCATIONS.taluks[district] || [];
+    const { districtId, district } = req.query;
 
-    const { search = '' } = req.query;
-    let filtered = [...taluksList];
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(t => t.toLowerCase().includes(q));
+    let parentId = districtId;
+    if (!parentId && district) {
+      const node = await LocationNode.findOne({ name: { $regex: new RegExp(`^${district}$`, 'i') }, type: 'DISTRICT' });
+      if (node) parentId = node._id;
     }
 
+    if (!parentId) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const taluks = await LocationNode.find({ parentId, type: 'TALUK' }).sort({ name: 1 });
     setCacheHeaders(res);
-    res.json({ success: true, data: filtered });
+    res.json({ success: true, data: taluks });
   } catch (error) {
+    console.error('Error retrieving taluks:', error);
     res.status(500).json({ success: false, message: 'Error retrieving taluks' });
   }
 };
 
 export const getVillages = async (req, res) => {
   try {
-    const { taluk } = req.query;
-    if (!taluk) {
-      return res.status(400).json({ success: false, message: 'Taluk parameter is required' });
-    }
-    
-    const villagesList = LOCATIONS.villages[taluk] || [];
+    const { talukId, taluk } = req.query;
 
-    const { search = '' } = req.query;
-    let filtered = [...villagesList];
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(v => v.name.toLowerCase().includes(q));
+    let parentId = talukId;
+    if (!parentId && taluk) {
+      const node = await LocationNode.findOne({ name: { $regex: new RegExp(`^${taluk}$`, 'i') }, type: 'TALUK' });
+      if (node) parentId = node._id;
     }
 
+    if (!parentId) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const villages = await LocationNode.find({ parentId, type: 'VILLAGE' }).sort({ name: 1 });
     setCacheHeaders(res);
-    res.json({ success: true, data: filtered });
+    res.json({ success: true, data: villages });
   } catch (error) {
+    console.error('Error retrieving villages:', error);
     res.status(500).json({ success: false, message: 'Error retrieving villages' });
+  }
+};
+
+export const searchLocation = async (req, res) => {
+  try {
+    const { q = '' } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const matches = await LocationNode.find({
+      name: { $regex: new RegExp(q.trim(), 'i') }
+    }).limit(20);
+
+    res.json({ success: true, data: matches });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error searching locations' });
   }
 };
 
@@ -98,11 +121,34 @@ export const lookupPincode = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid 6-digit PIN code is required' });
     }
 
-    const localResolved = resolvePincode(pincode);
-    if (localResolved) {
-      return res.json({ success: true, data: localResolved });
+    // Try resolve from database-backed locationNodes first
+    const resolvedNode = await LocationNode.findOne({ pincode, type: 'VILLAGE' }).populate({
+      path: 'parentId',
+      populate: {
+        path: 'parentId',
+        populate: { path: 'parentId' }
+      }
+    });
+
+    if (resolvedNode) {
+      const talukNode = resolvedNode.parentId;
+      const districtNode = talukNode?.parentId;
+      const stateNode = districtNode?.parentId;
+
+      return res.json({
+        success: true,
+        data: {
+          country: 'India',
+          state: stateNode?.name || '',
+          district: districtNode?.name || '',
+          taluk: talukNode?.name || '',
+          village: resolvedNode.name,
+          pincode
+        }
+      });
     }
 
+    // Call Government Postal API
     try {
       const postalUrl = `https://api.postalpincode.in/pincode/${pincode}`;
       const postalRes = await fetch(postalUrl);
@@ -110,6 +156,10 @@ export const lookupPincode = async (req, res) => {
         const json = await postalRes.json();
         if (json[0] && json[0].Status === 'Success' && json[0].PostOffice?.length > 0) {
           const po = json[0].PostOffice[0];
+          
+          // Seed it dynamically in MongoDB for future fast caches
+          await resolveOrSeedLocationContext(po.State, po.District, po.Block || po.Taluk || po.Division, po.Name, pincode);
+
           return res.json({
             success: true,
             data: {
@@ -125,6 +175,12 @@ export const lookupPincode = async (req, res) => {
       }
     } catch (apiErr) {
       console.warn('Govt Postal API lookup failed, falling back:', apiErr.message);
+    }
+
+    // Direct fallback from static db lookup
+    const localResolved = resolvePincode(pincode);
+    if (localResolved) {
+      return res.json({ success: true, data: localResolved });
     }
 
     res.status(404).json({ success: false, message: 'PIN code not found' });

@@ -9,9 +9,8 @@ import { formatCurrency } from '../utils/helpers';
 import { showError } from '../utils/notificationService';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { 
-  Sprout, MapPin, LandPlot, Droplets, Info, AlertTriangle, 
-  CheckCircle, ArrowRight, CloudSun, TrendingUp, DollarSign, 
-  HelpCircle, ChevronDown, ChevronUp, Star, RefreshCw
+  Sprout, MapPin, LandPlot, CloudSun, CheckCircle, AlertTriangle, 
+  Info, ChevronDown, ChevronUp, RefreshCw
 } from 'lucide-react';
 import { Bar, Line, Radar } from 'react-chartjs-2';
 import { 
@@ -54,9 +53,13 @@ export const CropAdvisorPage = () => {
 
   const [formData, setFormData] = useState({
     state: '',
+    stateId: '',
     district: '',
+    districtId: '',
     taluk: '',
+    talukId: '',
     village: '',
+    villageId: '',
     pincode: '',
     lat: '',
     lon: '',
@@ -68,7 +71,7 @@ export const CropAdvisorPage = () => {
     searchOutsideArea: false
   });
 
-  // Location dropdown lists
+  // Location lists (formatted as { value, label })
   const [statesList, setStatesList] = useState([]);
   const [districtsList, setDistrictsList] = useState([]);
   const [taluksList, setTaluksList] = useState([]);
@@ -84,8 +87,12 @@ export const CropAdvisorPage = () => {
   useEffect(() => {
     const fetchStates = async () => {
       try {
-        const stateRes = await api.get('/location/states?country=India');
-        setStatesList(stateRes.data.data || []);
+        const res = await api.get('/location/states');
+        const formatted = (res.data.data || []).map(s => ({
+          value: s._id || s.name,
+          label: s.name
+        }));
+        setStatesList(formatted);
       } catch (err) {
         console.error('Error fetching states:', err);
       }
@@ -108,54 +115,78 @@ export const CropAdvisorPage = () => {
 
   // Load Districts when State changes
   useEffect(() => {
-    if (!formData.state) {
+    if (!formData.stateId && !formData.state) {
       setDistrictsList([]);
       return;
     }
     const loadDistricts = async () => {
       try {
-        const res = await api.get(`/location/districts?state=${formData.state}`);
-        setDistrictsList(res.data.data || []);
+        const params = {};
+        if (formData.stateId) params.stateId = formData.stateId;
+        else params.state = formData.state;
+
+        const res = await api.get('/location/districts', { params });
+        const formatted = (res.data.data || []).map(d => ({
+          value: d._id || d.name,
+          label: d.name
+        }));
+        setDistrictsList(formatted);
       } catch (err) {
         showError(err, 'Failed to fetch districts');
       }
     };
     loadDistricts();
-  }, [formData.state]);
+  }, [formData.stateId, formData.state]);
 
   // Load Taluks when District changes
   useEffect(() => {
-    if (!formData.district) {
+    if (!formData.districtId && !formData.district) {
       setTaluksList([]);
       return;
     }
     const loadTaluks = async () => {
       try {
-        const res = await api.get(`/location/taluks?district=${formData.district}`);
-        setTaluksList(res.data.data || []);
+        const params = {};
+        if (formData.districtId) params.districtId = formData.districtId;
+        else params.district = formData.district;
+
+        const res = await api.get('/location/taluks', { params });
+        const formatted = (res.data.data || []).map(t => ({
+          value: t._id || t.name,
+          label: t.name
+        }));
+        setTaluksList(formatted);
       } catch (err) {
         showError(err, 'Failed to fetch taluks');
       }
     };
     loadTaluks();
-  }, [formData.district]);
+  }, [formData.districtId, formData.district]);
 
   // Load Villages when Taluk changes
   useEffect(() => {
-    if (!formData.taluk) {
+    if (!formData.talukId && !formData.taluk) {
       setVillagesList([]);
       return;
     }
     const loadVillages = async () => {
       try {
-        const res = await api.get(`/location/villages?taluk=${formData.taluk}`);
-        setVillagesList(res.data.data.map(v => v.name) || []);
+        const params = {};
+        if (formData.talukId) params.talukId = formData.talukId;
+        else params.taluk = formData.taluk;
+
+        const res = await api.get('/location/villages', { params });
+        const formatted = (res.data.data || []).map(v => ({
+          value: v._id || v.name,
+          label: v.name
+        }));
+        setVillagesList(formatted);
       } catch (err) {
         console.warn('Failed to fetch villages:', err.message);
       }
     };
     loadVillages();
-  }, [formData.taluk]);
+  }, [formData.talukId, formData.taluk]);
 
   // PIN Code Lookup Trigger
   const handlePincodeChange = async (val) => {
@@ -251,7 +282,6 @@ export const CropAdvisorPage = () => {
     }
   };
 
-  // Sparkline chart options
   const sparklineOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -260,7 +290,6 @@ export const CropAdvisorPage = () => {
     elements: { point: { radius: 0 } }
   };
 
-  // Profit Comparison Bar Chart
   const profitChartData = {
     labels: results?.recommendations.map(r => r.crop.name) || [],
     datasets: [
@@ -280,7 +309,6 @@ export const CropAdvisorPage = () => {
     ]
   };
 
-  // 12-Month Price Trend Chart
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const priceTrendData = {
     labels: months,
@@ -296,7 +324,6 @@ export const CropAdvisorPage = () => {
     ]
   };
 
-  // Risk Radar Chart for top crop
   const topCrop = results?.recommendations[0];
   const riskRadarData = {
     labels: ['Price Volatility', 'Pest Risk', 'Water Sensitivity', 'Storage Perishability', 'Transport Sensitivity'],
@@ -360,32 +387,66 @@ export const CropAdvisorPage = () => {
                   <SearchableSelect 
                     label="State" 
                     options={statesList} 
-                    value={formData.state} 
-                    onChange={(val) => setFormData({ ...formData, state: val, district: '', taluk: '', village: '' })} 
+                    value={formData.stateId || formData.state} 
+                    onChange={(val) => {
+                      const node = statesList.find(s => s.value === val);
+                      setFormData({ 
+                        ...formData, 
+                        state: node ? node.label : val, 
+                        stateId: node ? node.value : '', 
+                        district: '', districtId: '', 
+                        taluk: '', talukId: '', 
+                        village: '', villageId: '' 
+                      });
+                    }} 
                   />
 
                   <SearchableSelect 
                     label="District" 
                     options={districtsList} 
-                    value={formData.district} 
+                    value={formData.districtId || formData.district} 
                     disabled={!formData.state}
-                    onChange={(val) => setFormData({ ...formData, district: val, taluk: '', village: '' })} 
+                    onChange={(val) => {
+                      const node = districtsList.find(d => d.value === val);
+                      setFormData({ 
+                        ...formData, 
+                        district: node ? node.label : val, 
+                        districtId: node ? node.value : '', 
+                        taluk: '', talukId: '', 
+                        village: '', villageId: '' 
+                      });
+                    }} 
                   />
 
                   <SearchableSelect 
                     label="Taluk / Tehsil" 
                     options={taluksList} 
-                    value={formData.taluk} 
+                    value={formData.talukId || formData.taluk} 
                     disabled={!formData.district}
-                    onChange={(val) => setFormData({ ...formData, taluk: val, village: '' })} 
+                    onChange={(val) => {
+                      const node = taluksList.find(t => t.value === val);
+                      setFormData({ 
+                        ...formData, 
+                        taluk: node ? node.label : val, 
+                        talukId: node ? node.value : '', 
+                        village: '', villageId: '' 
+                      });
+                    }} 
                   />
 
                   <SearchableSelect 
                     label="Village" 
                     options={villagesList} 
-                    value={formData.village} 
+                    value={formData.villageId || formData.village} 
                     disabled={!formData.taluk}
-                    onChange={(val) => setFormData({ ...formData, village: val })} 
+                    onChange={(val) => {
+                      const node = villagesList.find(v => v.value === val);
+                      setFormData({ 
+                        ...formData, 
+                        village: node ? node.label : val, 
+                        villageId: node ? node.value : '' 
+                      });
+                    }} 
                   />
 
                   <div>
@@ -499,7 +560,7 @@ export const CropAdvisorPage = () => {
                     type="checkbox"
                     id="searchOutside"
                     checked={formData.searchOutsideArea}
-                    onChange={(e) => setFormData({ ...formData, searchOutsideArea: e.target.checked })}
+                    onChange={(e) => setFormData({ ...formData, searchOutsideArea: e.checked })}
                     className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                   />
                   <label htmlFor="searchOutside" className="text-xs font-semibold select-none cursor-pointer">

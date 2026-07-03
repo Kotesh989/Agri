@@ -1,9 +1,9 @@
 import { CROPS } from '../data/cropDatabase.js';
-import { MARKETS } from '../data/marketDatabase.js';
 import { HISTORICAL_PRICES } from '../data/historicalPrices.js';
-import { DailyCropPrice, User } from '../models/index.js';
+import { DailyCropPrice, User, MandiMarket } from '../models/index.js';
 import { syncDailyPrices } from '../services/priceSyncService.js';
 import { resolvePincode } from '../data/locationDatabase.js';
+import { resolveOrSeedLocationContext } from '../services/locationService.js';
 import {
   scoreSeasonSuitability,
   scoreWeatherCompatibility,
@@ -182,7 +182,98 @@ async function resolveLocationContext(req, body) {
     resolved.lon = 77.5946;
   }
 
+  // Cache/persist resolved details dynamically as LocationNodes in MongoDB
+  if (resolved.state) {
+    await resolveOrSeedLocationContext(
+      resolved.state, 
+      resolved.district, 
+      resolved.taluk, 
+      resolved.village, 
+      resolved.pincode
+    ).catch(err => console.warn('[Location] Failed to cache location nodes:', err.message));
+  }
+
   return resolved;
+}
+
+// Hierarchical crop pricing fallback calculator
+async function getHierarchicalFallbackPrice(crop, locationProfile, currentMonth, harvestMonth, historicalData) {
+  const cropId = crop.id;
+  let matchedPrice = null;
+  let sourceLevel = 'National Average';
+  let confidenceScore = 40;
+
+  // 1. Village Level Check
+  if (locationProfile.village) {
+    const match = await DailyCropPrice.findOne({ cropId, marketName: { $regex: new RegExp(`^${locationProfile.village}$`, 'i') } });
+    if (match) {
+      matchedPrice = match.pricePerQuintal;
+      sourceLevel = 'Village Mandi';
+      confidenceScore = 95;
+    }
+  }
+
+  // 2. Taluk Level Check
+  if (!matchedPrice && locationProfile.taluk) {
+    const matches = await DailyCropPrice.find({ cropId, marketName: { $regex: new RegExp(`${locationProfile.taluk}`, 'i') } });
+    if (matches.length > 0) {
+      matchedPrice = matches.reduce((a, b) => a + b.pricePerQuintal, 0) / matches.length;
+      sourceLevel = 'Taluk Average';
+      confidenceScore = 85;
+    }
+  }
+
+  // 3. District Level Check
+  if (!matchedPrice && locationProfile.district) {
+    const matches = await DailyCropPrice.find({ cropId, district: { $regex: new RegExp(`^${locationProfile.district}$`, 'i') } });
+    if (matches.length > 0) {
+      matchedPrice = matches.reduce((a, b) => a + b.pricePerQuintal, 0) / matches.length;
+      sourceLevel = 'District Average';
+      confidenceScore = 75;
+    }
+  }
+
+  // 4. State Level Check
+  if (!matchedPrice && locationProfile.state) {
+    const matches = await DailyCropPrice.find({ cropId, state: { $regex: new RegExp(`^${locationProfile.state}$`, 'i') } });
+    if (matches.length > 0) {
+      matchedPrice = matches.reduce((a, b) => a + b.pricePerQuintal, 0) / matches.length;
+      sourceLevel = 'State Average';
+      confidenceScore = 60;
+    }
+  }
+
+  // 5. National/General Database Average
+  if (!matchedPrice) {
+    const matches = await DailyCropPrice.find({ cropId });
+    if (matches.length > 0) {
+      matchedPrice = matches.reduce((a, b) => a + b.pricePerQuintal, 0) / matches.length;
+      sourceLevel = 'National Average';
+      confidenceScore = 50;
+    }
+  }
+
+  // 6. Historical crop config profile fallback
+  if (!matchedPrice) {
+    matchedPrice = historicalData 
+      ? historicalData.monthlyAvgPrices[currentMonth - 1] 
+      : crop.avgMarketPrice;
+    sourceLevel = 'Historical Base Profile';
+    confidenceScore = 45;
+  }
+
+  // Seasonality multiplier projection
+  const currentMonthAvg = historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice;
+  const harvestMonthAvg = historicalData ? historicalData.monthlyAvgPrices[harvestMonth - 1] : crop.avgMarketPrice;
+  const trendMultiplier = currentMonthAvg > 0 ? (harvestMonthAvg / currentMonthAvg) : 1.0;
+  const predictedPrice = Math.round(matchedPrice * trendMultiplier);
+
+  return {
+    currentPrice: Math.round(matchedPrice),
+    predictedPrice,
+    sourceLevel,
+    confidenceScore
+  };
 }
 
 export const analyze = async (req, res) => {
@@ -198,13 +289,13 @@ export const analyze = async (req, res) => {
 
     const land = Number(landSize) || 1;
 
-    // 1. Resolve Location using chain of priorities
+    // 1. Resolve Location Node details
     const locationProfile = await resolveLocationContext(req, req.body);
 
-    // Trigger daily price sync check
+    // Dynamic price sync
     await syncDailyPrices();
 
-    // 2. Fetch 7-day forecast from Open-Meteo
+    // 2. Open-Meteo Weather forecast parameters
     let weatherSummary = { ...DEFAULT_WEATHER };
     try {
       const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${locationProfile.lat}&longitude=${locationProfile.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
@@ -227,33 +318,24 @@ export const analyze = async (req, res) => {
         }
       }
     } catch (weatherErr) {
-      console.warn('[Weather] Fetch failed, using climatology fallbacks:', weatherErr.message);
+      console.warn('[Weather] Fetch failed, using default averages:', weatherErr.message);
     }
 
-    const currentMonth = new Date().getMonth() + 1; // 1-12
+    const currentMonth = new Date().getMonth() + 1;
 
-    // 3. Filter markets - prevent recommending distant mandis unless explicitly allowed
+    // 3. Retrieve MandiMarkets from MongoDB (prevent recommending distant states)
     const outsideSearch = searchOutsideArea === true || searchOutsideArea === 'true';
-    let filteredMarkets = MARKETS;
-    
-    if (!outsideSearch && locationProfile.state && locationProfile.district) {
-      filteredMarkets = MARKETS.filter(m => 
-        m.state.toLowerCase() === locationProfile.state.toLowerCase() &&
-        m.district.toLowerCase() === locationProfile.district.toLowerCase()
-      );
-      // Fallback to state level if no APMCs are in the district
-      if (filteredMarkets.length === 0) {
-        filteredMarkets = MARKETS.filter(m => 
-          m.state.toLowerCase() === locationProfile.state.toLowerCase()
-        );
-      }
+    let filteredMarkets = [];
+
+    if (!outsideSearch && locationProfile.state) {
+      filteredMarkets = await MandiMarket.find({ state: { $regex: new RegExp(`^${locationProfile.state}$`, 'i') } });
     }
     
     if (filteredMarkets.length === 0) {
-      filteredMarkets = MARKETS;
+      filteredMarkets = await MandiMarket.find();
     }
 
-    // 4. Run Recommendation calculations
+    // 4. Recommendation looping
     const recommendations = [];
 
     for (const crop of CROPS) {
@@ -263,74 +345,63 @@ export const analyze = async (req, res) => {
       const harvestMonth = harvestDate.getMonth() + 1;
 
       const historicalData = HISTORICAL_PRICES.find(h => h.cropId === crop.id);
-      
-      // Query live daily price entry for this crop
-      const dailyPrices = await DailyCropPrice.find({ cropId: crop.id });
-      const currentAvgLivePrice = dailyPrices.length > 0
-        ? dailyPrices.reduce((a, b) => a + b.pricePerQuintal, 0) / dailyPrices.length
-        : (historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice);
 
-      const liveHistoricalData = historicalData ? {
-        ...historicalData,
-        monthlyAvgPrices: historicalData.monthlyAvgPrices.map((p, idx) => 
-          idx === (currentMonth - 1) ? Math.round(currentAvgLivePrice) : p
-        )
-      } : null;
+      // Hierarchical price matching
+      const priceContext = await getHierarchicalEstimatedPriceFallback(crop, locationProfile, currentMonth, harvestMonth, historicalData);
 
-      // Scoring breakdown
+      // Scoring
       const scores = {
         season: scoreSeasonSuitability(crop, currentMonth),
         weather: scoreWeatherCompatibility(crop, weatherSummary),
         soil: scoreSoilCompatibility(crop, soilType),
         profit: scoreProfitMargin(crop, land, 'Karnataka', harvestMonth),
-        price: scorePriceTrend(crop, harvestMonth, liveHistoricalData),
+        price: scorePriceTrend(crop, harvestMonth, historicalData),
         demand: scoreDemandFactor(crop, harvestMonth),
         risk: scoreRiskAssessment(crop, weatherSummary),
         water: scoreWaterMatch(crop, irrigationAvailable)
       };
 
       const compositeScore = calculateCompositeScore(scores);
-      const economics = calculateEconomics(crop, land, harvestMonth, liveHistoricalData);
+      
+      // Inject fallback pricing to economics scoring
+      const mockHistoricalData = historicalData ? {
+        ...historicalData,
+        monthlyAvgPrices: historicalData.monthlyAvgPrices.map((p, idx) => 
+          idx === (currentMonth - 1) ? priceContext.currentPrice : p
+        )
+      } : null;
+
+      const economics = calculateEconomics(crop, land, harvestMonth, mockHistoricalData);
       const risk = assessRiskLevel(crop, scores);
       const reasons = generateReasons(crop, scores, weatherSummary, harvestMonth);
 
-      // Map to filtered APMC markets
+      // Distances sorting
       const nearbyMarkets = filteredMarkets.map(market => {
         const distance = getDistance(locationProfile.lat, locationProfile.lon, market.lat, market.lon);
         const unitTransportCost = 20 + distance * 4;
         const totalTransportCost = Math.round(((crop.yieldPerAcre.min + crop.yieldPerAcre.max) / 2) * land * (unitTransportCost / 10));
 
-        const liveMarketEntry = dailyPrices.find(p => p.marketId === market.id);
-        const currentPrice = liveMarketEntry ? liveMarketEntry.pricePerQuintal : crop.avgMarketPrice;
-
-        const currentMonthAvg = historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice;
-        const harvestMonthAvg = historicalData ? historicalData.monthlyAvgPrices[harvestMonth - 1] : crop.avgMarketPrice;
-        const trendMultiplier = currentMonthAvg > 0 ? (harvestMonthAvg / currentMonthAvg) : 1.0;
-        const predictedPrice = Math.round(currentPrice * trendMultiplier);
-
         return {
-          id: market.id,
+          id: market.marketId,
           name: market.name,
           distance,
-          currentPrice,
-          predictedPrice,
+          currentPrice: priceContext.currentPrice,
+          predictedPrice: priceContext.predictedPrice,
           transportCost: totalTransportCost,
-          arrivalQuantity: liveMarketEntry?.arrivalQuantity || 120 + Math.round(Math.random() * 80), // tonnes
-          marketTrend: trendMultiplier > 1.05 ? 'Increasing' : trendMultiplier < 0.95 ? 'Decreasing' : 'Stable',
-          bestSellingWindow: harvestMonth === 10 || harvestMonth === 11 ? 'Late October (Diwali Festival)' : 'Mid month (Stable volume)'
+          arrivalQuantity: 120 + Math.round(Math.random() * 80),
+          marketTrend: priceContext.predictedPrice > priceContext.currentPrice ? 'Increasing' : 'Stable',
+          bestSellingWindow: 'Harvest Mid Month'
         };
       })
-      .sort((a, b) => a.distance - b.distance); // sort nearest to farthest
+      .sort((a, b) => a.distance - b.distance);
 
-      const recommendedMarket = nearbyMarkets[0] || { name: 'Local Mandi', distance: 0, currentPrice: currentAvgLivePrice, predictedPrice: currentAvgLivePrice };
-
-      // Math updates for predictions
+      const recommendedMarket = nearbyMarkets[0] || { name: 'Local Mandi', distance: 0 };
       const profitPercentage = Math.round((economics.expectedProfit / economics.cultivationCost) * 100);
 
       recommendations.push({
         crop,
         score: compositeScore,
-        confidence: Math.round(compositeScore),
+        confidence: priceContext.confidenceScore,
         risk,
         harvestDate: harvestDate.toISOString().slice(0, 10),
         daysUntilHarvest: durationDays,
@@ -339,17 +410,14 @@ export const analyze = async (req, res) => {
           profitPercentage
         },
         reasons,
-        nearbyMarkets: nearbyMarkets.slice(0, 5), // top 5
+        nearbyMarkets: nearbyMarkets.slice(0, 5),
         recommendedMarket: recommendedMarket.name,
         distanceToMarket: recommendedMarket.distance,
-        priceTrend: liveHistoricalData ? liveHistoricalData.monthlyAvgPrices : crop.monthlyPriceTrends
+        priceTrend: mockHistoricalData ? mockHistoricalData.monthlyAvgPrices : crop.monthlyPriceTrends
       });
     }
 
-    // Sort by expected net profit descending
     recommendations.sort((a, b) => b.economics.expectedProfit - a.economics.expectedProfit);
-
-    // Limit to top 10 recommended crops
     const top10 = recommendations.slice(0, 10).map((rec, index) => ({
       rank: index + 1,
       ...rec
@@ -371,6 +439,21 @@ export const analyze = async (req, res) => {
   }
 };
 
+// Internal router link mapping helper
+async function getHierarchicalEstimatedPriceFallback(crop, locationProfile, currentMonth, harvestMonth, historicalData) {
+  try {
+    return await getHierarchicalFallbackPrice(crop, locationProfile, currentMonth, harvestMonth, historicalData);
+  } catch (err) {
+    console.warn('[Pricing] Fallback failed, returning base default:', err.message);
+    return {
+      currentPrice: crop.avgMarketPrice,
+      predictedPrice: crop.avgMarketPrice,
+      sourceLevel: 'National Average Fallback',
+      confidenceScore: 40
+    };
+  }
+}
+
 export const listCrops = async (req, res) => {
   try {
     res.json({ success: true, data: CROPS });
@@ -385,8 +468,14 @@ export const listMarkets = async (req, res) => {
     const lon = Number(req.query.lon) || 77.5946;
     const limit = Number(req.query.limit) || 10;
 
-    const sorted = MARKETS.map(m => ({
-      ...m,
+    const markets = await MandiMarket.find();
+    const sorted = markets.map(m => ({
+      id: m.marketId,
+      name: m.name,
+      state: m.state,
+      district: m.district,
+      lat: m.lat,
+      lon: m.lon,
       distance: getDistance(lat, lon, m.lat, m.lon)
     }))
     .sort((a, b) => a.distance - b.distance)
@@ -447,7 +536,7 @@ export const weatherAnalysis = async (req, res) => {
   }
 };
 
-// Admin endpoint to manually update today's APMC mandi market price for a crop
+// Admin manually updates mandi prices
 export const updateMarketPrice = async (req, res) => {
   try {
     const { cropId, marketId, pricePerQuintal } = req.body;
@@ -456,7 +545,7 @@ export const updateMarketPrice = async (req, res) => {
     }
 
     const crop = CROPS.find(c => c.id === cropId);
-    const market = MARKETS.find(m => m.id === marketId);
+    const market = await MandiMarket.findOne({ marketId });
     if (!crop || !market) {
       return res.status(400).json({ success: false, message: 'Invalid crop or market ID.' });
     }
