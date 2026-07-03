@@ -21,35 +21,8 @@ import * as machineryController from '../controllers/machineryController.js';
 import * as cropRecommendationController from '../controllers/cropRecommendationController.js';
 import * as locationController from '../controllers/locationController.js';
 import { authenticate, authorize, requireStoreAccess } from '../middleware/auth.js';
-import { seedMongo } from '../db/seed.js';
-import mongoose from 'mongoose';
 
 const router = express.Router();
-
-// ============ DATABASE CLEANUP ROUTE (TEMPORARY) ============
-router.post('/admin/clear-database-once', async (req, res) => {
-  try {
-    const { secret } = req.query;
-    if (secret !== 'agri_cleanup_once') {
-      return res.status(403).json({ success: false, message: 'Invalid cleanup secret' });
-    }
-
-    console.log('[Database Cleanup Hook] Triggered. Dropping documents in all collections...');
-    const collections = Object.keys(mongoose.connection.collections);
-    for (const name of collections) {
-      const collection = mongoose.connection.collections[name];
-      await collection.deleteMany({});
-    }
-
-    console.log('[Database Cleanup Hook] Dropping complete. Seeding default configurations...');
-    await seedMongo();
-
-    return res.json({ success: true, message: 'Database cleaned and essential configurations seeded successfully.' });
-  } catch (err) {
-    console.error('[Database Cleanup Hook] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // ============ AUTH ROUTES ============
 router.post('/auth/register', authController.register);
