@@ -46,7 +46,7 @@ app.use(rateLimit({
 }));
 app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.AUTH_RATE_LIMIT_MAX || 25),
+  limit: Number(process.env.AUTH_RATE_LIMIT_MAX || 100),
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
