@@ -92,7 +92,7 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-lg dark:border-gray-800 dark:bg-[#0f1512]/85">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-lg dark:border-gray-800 dark:bg-[#0f1512]/85 h-16">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center space-x-3 group cursor-pointer hover:opacity-80 transition-opacity">
           <div className="rounded-lg bg-emerald-600 p-2.5 text-white shadow-sm transition-all duration-200 group-hover:bg-emerald-700">

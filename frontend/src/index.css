@@ -240,10 +240,16 @@ h1, h2, h3, h4, h5, h6 {
 
 .app-shell {
   background-color: var(--neo-bg);
+  padding-top: 64px; /* Height of the fixed navbar */
   @apply flex min-h-screen;
 }
 
 .app-main {
   background-color: var(--neo-bg);
   @apply flex-1 overflow-auto p-4 sm:p-6 lg:p-8;
+}
+
+aside {
+  height: calc(100vh - 64px) !important;
+  top: 64px !important;
 }
