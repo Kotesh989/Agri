@@ -542,19 +542,25 @@ export const toggleUserStatus = async (req, res) => {
     // If a FARMER is being activated and doesn't have a Customer profile yet, create/link it now
     if (user.role === 'FARMER' && user.isActive) {
       if (!user.customerId) {
-        // 1. Check if a Customer with the same mobile or email already exists for this admin
+        // 1. Get the admin's default store
+        const store = await Store.findOne({ ownerAdminId: user.adminId });
+        const storeId = store ? store._id : null;
+
+        // 2. Check if a Customer with the same mobile or email already exists for this admin
         let customer = await Customer.findOne({
           adminId: user.adminId,
+          storeId,
           $or: [
             { mobileNumber: user.mobileNumber },
             { email: user.email.toLowerCase() }
           ]
         });
 
-        // 2. If not, create a new Customer profile
+        // 3. If not, create a new Customer profile
         if (!customer) {
           customer = await Customer.create({
             adminId: user.adminId,
+            storeId,
             name: user.name,
             email: user.email,
             mobileNumber: user.mobileNumber,
@@ -569,8 +575,7 @@ export const toggleUserStatus = async (req, res) => {
 
         user.customerId = customer._id;
 
-        // 3. Link them to the admin's default store
-        const store = await Store.findOne({ ownerAdminId: user.adminId });
+        // 4. Link them to the admin's default store
         if (store) {
           await FarmerStoreLink.findOneAndUpdate(
             { farmerId: user._id, storeId: store._id },
