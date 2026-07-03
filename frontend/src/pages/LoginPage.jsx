@@ -82,9 +82,15 @@ export const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await login(email, password, portal);
-      addNotification('Login successful', 'success');
-      navigate(user.role === 'FARMER' ? '/farmer/dashboard' : '/dashboard');
+      const result = await login(email, password, portal);
+      if (result?.otpRequired) {
+        setOtpMode(true);
+        setOtpRequested(true);
+        addNotification('OTP confirmation sent to your email. Please verify to log in.', 'success');
+      } else if (result) {
+        addNotification('Login successful', 'success');
+        navigate(result.role === 'FARMER' ? '/farmer/dashboard' : '/dashboard');
+      }
     } catch (error) {
       showError(error, 'Invalid email, mobile number, password, or OTP.');
     } finally {
@@ -170,72 +176,101 @@ export const LoginPage = () => {
           </div>
         )}
 
-        <form onSubmit={otpMode && portal === 'farmer' ? handleVerifyOtp : handleSubmit} className="space-y-5">
-          {!otpMode && (
-          <div className="form-group">
-            <label className="form-label">{portal === 'farmer' ? 'Farmer Email or Mobile Number' : t('auth.adminEmail')}</label>
-            <input 
-              type={portal === 'farmer' ? 'text' : 'email'} 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              className="input" 
-              placeholder={portal === 'farmer' ? 'Enter email or phone' : 'admin@example.com'}
-              required 
-            />
-          </div>
-          )}
-
-          {otpMode && portal === 'farmer' && (
+        <form onSubmit={otpMode ? handleVerifyOtp : handleSubmit} className="space-y-5">
+          {!otpMode ? (
             <>
               <div className="form-group">
-                <label className="form-label">Mobile number</label>
-                <input
-                  type="tel"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value.replace(/[^\d+]/g, '').slice(0, 15))}
-                  className="input"
-                  inputMode="tel"
-                  placeholder="Enter farmer mobile number"
-                  required
+                <label className="form-label">{portal === 'farmer' ? 'Farmer Email or Mobile Number' : t('auth.adminEmail')}</label>
+                <input 
+                  type={portal === 'farmer' ? 'text' : 'email'} 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  className="input" 
+                  placeholder={portal === 'farmer' ? 'Enter email or phone' : 'admin@example.com'}
+                  required 
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleRequestOtp}
-                className="btn btn-secondary w-full"
-                disabled={loading || otpCooldown > 0}
-              >
-                {otpCooldown > 0 ? `${t('auth.resendOtp')} (${otpCooldown}s)` : otpRequested ? t('auth.resendOtp') : t('auth.sendOtp')}
-              </button>
-              {otpRequested && (
-                <div className="form-group">
-                  <label className="form-label">{t('auth.enterOtp')}</label>
-                  <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} className="input text-center text-lg tracking-[0.3em]" inputMode="numeric" maxLength="6" required />
+              <div className="form-group">
+                <label className="form-label">{t('auth.password')}</label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="input pr-12" 
+                    required 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    className="absolute right-3 top-3 text-slate-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition-colors duration-200"
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Phone OTP Mode for Farmer */}
+              {portal === 'farmer' && !password ? (
+                <>
+                  <div className="form-group animate-slide-up">
+                    <label className="form-label">Mobile number</label>
+                    <input
+                      type="tel"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value.replace(/[^\d+]/g, '').slice(0, 15))}
+                      className="input"
+                      inputMode="tel"
+                      placeholder="Enter farmer mobile number"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRequestOtp}
+                    className="btn btn-secondary w-full"
+                    disabled={loading || otpCooldown > 0}
+                  >
+                    {otpCooldown > 0 ? `${t('auth.resendOtp')} (${otpCooldown}s)` : otpRequested ? t('auth.resendOtp') : t('auth.sendOtp')}
+                  </button>
+                  {otpRequested && (
+                    <div className="form-group animate-slide-up">
+                      <label className="form-label">{t('auth.enterOtp')}</label>
+                      <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} className="input text-center text-lg tracking-[0.3em]" inputMode="numeric" maxLength="6" required />
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Email 2FA OTP Mode for Admin or Farmer */
+                <>
+                  <div className="form-group animate-slide-up">
+                    <label className="form-label">Email</label>
+                    <input 
+                      type="text" 
+                      value={email} 
+                      className="input bg-slate-100 dark:bg-gray-800 cursor-not-allowed" 
+                      disabled 
+                    />
+                  </div>
+                  <div className="form-group animate-slide-up">
+                    <label className="form-label">{t('auth.enterOtp')}</label>
+                    <input 
+                      value={otp} 
+                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} 
+                      className="input text-center text-lg tracking-[0.3em]" 
+                      inputMode="numeric" 
+                      maxLength="6" 
+                      required 
+                      placeholder="Enter 6-digit OTP"
+                    />
+                  </div>
+                </>
               )}
             </>
           )}
-
-          {!(otpMode && portal === 'farmer') && <div className="form-group">
-            <label className="form-label">{t('auth.password')}</label>
-            <div className="relative">
-              <input 
-                type={showPassword ? 'text' : 'password'} 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                className="input pr-12" 
-                required 
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((current) => !current)}
-                className="absolute right-3 top-3 text-slate-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition-colors duration-200"
-                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-          </div>}
 
           {portal === 'farmer' && (
             <button

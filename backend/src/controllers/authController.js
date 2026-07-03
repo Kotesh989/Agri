@@ -183,6 +183,33 @@ const loginWithRole = async (req, res, expectedRole) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    // Require Email OTP verification if logging in with email (ADMIN role only)
+    if (loginId.includes('@') && user.role === 'ADMIN') {
+      const otp = generateOtp();
+      await FarmerAuthOtp.deleteMany({ identifier: user.email.toLowerCase(), consumedAt: null });
+      await FarmerAuthOtp.create({
+        identifier: user.email.toLowerCase(),
+        channel: 'EMAIL',
+        otpHash: await hashPassword(otp),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        resendAvailableAt: new Date(Date.now() + 60 * 1000),
+      });
+
+      console.info(`Email OTP for ${user.email}: ${otp}`);
+      try {
+        await sendEmailOtp({ to: user.email, otp, purpose: 'login' });
+      } catch (err) {
+        console.warn('Failed to send email OTP, logging locally:', err.message);
+      }
+
+      return res.json({
+        success: true,
+        otpRequired: true,
+        identifier: user.email.toLowerCase(),
+        message: 'OTP verification code sent to your email.'
+      });
+    }
+
     const token = generateToken(user.id, user.email, user.role, adminTokenId(user));
     setAuthCookie(res, token);
     res.json({
@@ -308,11 +335,13 @@ export const verifyFarmerOtp = async (req, res) => {
 
     let user = await getUserByIdentifier(identifier);
     if (!user) user = await createFarmerFromOtpProfile(identifier, record.channel, record.profile);
-    if (user.role !== 'FARMER') {
+    if (record.channel === 'PHONE' && user.role !== 'FARMER') {
       return res.status(403).json({ success: false, message: 'OTP login is available for farmers only' });
     }
 
-    user.isPhoneVerified = true;
+    if (record.channel === 'PHONE') {
+      user.isPhoneVerified = true;
+    }
     await user.save();
     const token = generateToken(user.id, user.email, user.role, adminTokenId(user));
     record.consumedAt = new Date();

@@ -38,6 +38,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (identifier, password) => {
     const response = await api.post('/auth/login', { email: identifier, identifier, password });
+    if (response.data.otpRequired) {
+      return { otpRequired: true, identifier: response.data.identifier };
+    }
     const { token, user } = response.data.data;
     localStorage.setItem('token', token);
     localStorage.setItem('role', user.role);
@@ -62,7 +65,12 @@ export const AuthProvider = ({ children }) => {
     const { token: nextToken, user: nextUser } = response.data.data;
     localStorage.setItem('token', nextToken);
     localStorage.setItem('role', nextUser.role);
-    localStorage.removeItem('storeId');
+    if (nextUser.role === 'ADMIN') {
+      const storesResponse = await api.get('/stores');
+      if (storesResponse.data.data[0]) localStorage.setItem('storeId', storesResponse.data.data[0].id);
+    } else {
+      localStorage.removeItem('storeId');
+    }
     setToken(nextToken);
     setUser(nextUser);
     return nextUser;
