@@ -19,7 +19,6 @@ import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SalesPage } from './pages/SalesPage';
 import { SoilHealthPage } from './pages/SoilHealthPage';
-import { CropAdvisorPage } from './pages/CropAdvisorPage';
 import { InstallmentPlannerPage } from './pages/InstallmentPlannerPage';
 import { MachineryHubPage } from './pages/MachineryHubPage';
 import { SuppliersPage } from './pages/SuppliersPage';
@@ -111,14 +110,6 @@ function App() {
                 element={
                   <ProtectedRoute roles={['ADMIN']}>
                     <SoilHealthPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/crop-advisor"
-                element={
-                  <ProtectedRoute roles={['ADMIN', 'FARMER']}>
-                    <CropAdvisorPage />
                   </ProtectedRoute>
                 }
               />

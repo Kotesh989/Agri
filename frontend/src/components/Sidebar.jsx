@@ -25,7 +25,6 @@ const menuItems = [
   { labelKey: 'nav.inventory', icon: Package, path: '/products' },
   { labelKey: 'nav.customers', icon: Users, path: '/customers' },
   { labelKey: 'nav.soilHealth', icon: FlaskConical, path: '/soil-health' },
-  { labelKey: 'nav.cropAdvisor', icon: Sprout, path: '/crop-advisor' },
   { labelKey: 'nav.machinery', icon: Wrench, path: '/machinery' },
   { labelKey: 'nav.sales', icon: ShoppingCart, path: '/sales' },
   { labelKey: 'nav.purchases', icon: Truck, path: '/purchases' },
@@ -40,7 +39,6 @@ const farmerMenuItems = [
   { labelKey: 'nav.farmerDashboard', icon: LayoutDashboard, path: '/farmer/dashboard' },
   { labelKey: 'nav.shops', icon: Store, path: '/farmer/stores' },
   { labelKey: 'nav.machinery', icon: Wrench, path: '/machinery' },
-  { labelKey: 'nav.cropAdvisor', icon: Sprout, path: '/crop-advisor' },
 ];
 
 export const Sidebar = () => {
