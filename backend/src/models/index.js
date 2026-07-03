@@ -577,3 +577,14 @@ export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 export const SoilHealthCard = mongoose.model('SoilHealthCard', soilHealthCardSchema);
 export const Machinery = mongoose.model('Machinery', machinerySchema);
 export const MachineryBooking = mongoose.model('MachineryBooking', machineryBookingSchema);
+
+const dailyCropPriceSchema = new Schema({
+  cropId: { type: String, required: true, index: true },
+  marketId: { type: String, required: true, index: true },
+  pricePerQuintal: { type: Number, required: true },
+  lastUpdated: { type: Date, default: Date.now }
+}, baseOptions);
+
+dailyCropPriceSchema.index({ cropId: 1, marketId: 1 }, { unique: true });
+
+export const DailyCropPrice = mongoose.model('DailyCropPrice', dailyCropPriceSchema);

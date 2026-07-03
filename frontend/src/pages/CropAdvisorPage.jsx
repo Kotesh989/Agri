@@ -52,10 +52,10 @@ export const CropAdvisorPage = () => {
   const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
-    state: user?.state || '',
-    district: user?.district || '',
-    taluk: user?.taluk || '',
-    village: user?.village || '',
+    state: '',
+    district: '',
+    taluk: '',
+    village: '',
     lat: '',
     lon: '',
     landSize: 1,
@@ -69,26 +69,71 @@ export const CropAdvisorPage = () => {
   const [results, setResults] = useState(null);
   const [expandedCrop, setExpandedCrop] = useState(null);
   const [selectedTrendCrop, setSelectedTrendCrop] = useState(null);
+  const [detecting, setDetecting] = useState(false);
 
-  // Auto-detect GPS coordinates
+  // Auto-fill form from user profile on mount
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        state: user.state || prev.state,
+        district: user.district || prev.district,
+        taluk: user.taluk || prev.taluk,
+        village: user.village || prev.village
+      }));
+    }
+  }, [user]);
+
+  // Auto-detect GPS coordinates and reverse geocode location details
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       addNotification('Geolocation is not supported by your browser', 'error');
       return;
     }
 
+    setDetecting(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const latitude = position.coords.latitude.toFixed(4);
+        const longitude = position.coords.longitude.toFixed(4);
+        
         setFormData(prev => ({
           ...prev,
-          lat: position.coords.latitude.toFixed(4),
-          lon: position.coords.longitude.toFixed(4)
+          lat: latitude,
+          lon: longitude
         }));
-        addNotification('Location detected successfully!', 'success');
+
+        try {
+          // OpenStreetMap Nominatim Free Reverse Geocoding API
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=en`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            const address = data.address || {};
+            
+            setFormData(prev => ({
+              ...prev,
+              state: address.state || prev.state,
+              district: address.district || address.county || address.state_district || prev.district,
+              taluk: address.suburb || address.town || address.county || prev.taluk,
+              village: address.village || address.hamlet || address.neighbourhood || address.suburb || prev.village
+            }));
+            addNotification('GPS location and address details resolved successfully!', 'success');
+          } else {
+            addNotification('Coordinates captured, but failed to fetch address details.', 'warning');
+          }
+        } catch (err) {
+          console.warn('Reverse geocoding failed:', err);
+          addNotification('Coordinates captured. Address reverse lookup failed.', 'warning');
+        } finally {
+          setDetecting(false);
+        }
       },
       (error) => {
         console.error('Geolocation error:', error);
-        addNotification('Could not detect location. Please input coordinates manually.', 'warning');
+        addNotification('Could not detect location. Please input details manually.', 'warning');
+        setDetecting(false);
       }
     );
   };
@@ -261,9 +306,11 @@ export const CropAdvisorPage = () => {
                     <button 
                       type="button"
                       onClick={handleDetectLocation}
-                      className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                      disabled={detecting}
+                      className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1"
                     >
-                      {t('cropAdvisor.detectLocation') || 'Detect Location'}
+                      {detecting && <RefreshCw className="w-3 h-3 animate-spin" />}
+                      {detecting ? 'Resolving Address...' : (t('cropAdvisor.detectLocation') || 'Detect Location')}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -400,7 +447,10 @@ export const CropAdvisorPage = () => {
                     <div className="card p-4 border border-slate-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Crops Evaluated</span>
                       <span className="text-2xl font-black mt-1">35 Crops</span>
-                      <span className="text-[10px] text-slate-500 mt-1">Full knowledge database checked</span>
+                      <span className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 text-emerald-600 font-bold">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                        Prices Updated Today
+                      </span>
                     </div>
 
                     <div className="card p-4 border border-slate-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">

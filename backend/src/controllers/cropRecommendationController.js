@@ -1,6 +1,8 @@
 import { CROPS } from '../data/cropDatabase.js';
 import { MARKETS } from '../data/marketDatabase.js';
 import { HISTORICAL_PRICES } from '../data/historicalPrices.js';
+import { DailyCropPrice } from '../models/index.js';
+import { syncDailyPrices } from '../services/priceSyncService.js';
 import {
   scoreSeasonSuitability,
   scoreWeatherCompatibility,
@@ -54,6 +56,9 @@ export const analyze = async (req, res) => {
     const farmerLat = Number(lat) || 12.9716; // default Bangalore
     const farmerLon = Number(lon) || 77.5946;
 
+    // Trigger daily price sync to ensure database is populated
+    await syncDailyPrices();
+
     // 1. Fetch 7-day forecast from Open-Meteo
     let weatherSummary = { ...DEFAULT_WEATHER };
     try {
@@ -72,7 +77,7 @@ export const analyze = async (req, res) => {
           weatherSummary = {
             avgTemp: Math.round(avgTemp),
             totalRainfall: Math.round(rainSum),
-            avgHumidity: 65 // fallback constant since Open-Meteo requires extra params for humidity
+            avgHumidity: 65
           };
         }
       }
@@ -92,6 +97,20 @@ export const analyze = async (req, res) => {
       const harvestMonth = harvestDate.getMonth() + 1;
 
       const historicalData = HISTORICAL_PRICES.find(h => h.cropId === crop.id);
+      
+      // Query live daily price entry for this crop to inject real-time values
+      const dailyPrices = await DailyCropPrice.find({ cropId: crop.id });
+      const currentAvgLivePrice = dailyPrices.length > 0
+        ? dailyPrices.reduce((a, b) => a + b.pricePerQuintal, 0) / dailyPrices.length
+        : (historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice);
+
+      // Create a dynamic historical data profile with live price injected
+      const liveHistoricalData = historicalData ? {
+        ...historicalData,
+        monthlyAvgPrices: historicalData.monthlyAvgPrices.map((p, idx) => 
+          idx === (currentMonth - 1) ? Math.round(currentAvgLivePrice) : p
+        )
+      } : null;
 
       // Scoring breakdown
       const scores = {
@@ -99,33 +118,40 @@ export const analyze = async (req, res) => {
         weather: scoreWeatherCompatibility(crop, weatherSummary),
         soil: scoreSoilCompatibility(crop, soilType),
         profit: scoreProfitMargin(crop, land, 'Karnataka', harvestMonth),
-        price: scorePriceTrend(crop, harvestMonth, historicalData),
+        price: scorePriceTrend(crop, harvestMonth, liveHistoricalData),
         demand: scoreDemandFactor(crop, harvestMonth),
         risk: scoreRiskAssessment(crop, weatherSummary),
         water: scoreWaterMatch(crop, irrigationAvailable)
       };
 
       const compositeScore = calculateCompositeScore(scores);
-      const economics = calculateEconomics(crop, land, harvestMonth, historicalData);
+      const economics = calculateEconomics(crop, land, harvestMonth, liveHistoricalData);
       const risk = assessRiskLevel(crop, scores);
       const reasons = generateReasons(crop, scores, weatherSummary, harvestMonth);
 
       // 3. Find nearby markets & calculate transport costs
       const nearbyMarkets = MARKETS.map(market => {
         const distance = getDistance(farmerLat, farmerLon, market.lat, market.lon);
-        // Estimate transport cost: ₹20 base + ₹5 per km per quintal approx
+        // Estimate transport cost: ₹20 base + ₹4 per km per quintal approx
         const unitTransportCost = 20 + distance * 4;
-        const totalTransportCost = Math.round(((crop.yieldPerAcre.min + crop.yieldPerAcre.max) / 2) * land * (unitTransportCost / 10)); // scaled to volume
+        const totalTransportCost = Math.round(((crop.yieldPerAcre.min + crop.yieldPerAcre.max) / 2) * land * (unitTransportCost / 10));
 
-        const currentPrice = historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice;
-        const predictedPrice = historicalData ? historicalData.monthlyAvgPrices[harvestMonth - 1] : crop.avgMarketPrice;
+        // Find live today's price in this specific market
+        const liveMarketEntry = dailyPrices.find(p => p.marketId === market.id);
+        const currentPrice = liveMarketEntry ? liveMarketEntry.pricePerQuintal : crop.avgMarketPrice;
+
+        // Predict future harvest price based on seasonal trend factor
+        const currentMonthAvg = historicalData ? historicalData.monthlyAvgPrices[currentMonth - 1] : crop.avgMarketPrice;
+        const harvestMonthAvg = historicalData ? historicalData.monthlyAvgPrices[harvestMonth - 1] : crop.avgMarketPrice;
+        const trendMultiplier = currentMonthAvg > 0 ? (harvestMonthAvg / currentMonthAvg) : 1.0;
+        const predictedPrice = Math.round(currentPrice * trendMultiplier);
 
         return {
           id: market.id,
           name: market.name,
           distance,
-          currentPrice: Math.round(currentPrice),
-          predictedPrice: Math.round(predictedPrice),
+          currentPrice,
+          predictedPrice,
           transportCost: totalTransportCost
         };
       })
@@ -141,7 +167,7 @@ export const analyze = async (req, res) => {
         economics,
         reasons,
         nearbyMarkets,
-        priceTrend: historicalData ? historicalData.monthlyAvgPrices : crop.monthlyPriceTrends
+        priceTrend: liveHistoricalData ? liveHistoricalData.monthlyAvgPrices : crop.monthlyPriceTrends
       });
     }
 
@@ -210,10 +236,29 @@ export const listMarkets = async (req, res) => {
 export const priceHistory = async (req, res) => {
   try {
     const { cropId } = req.params;
+    
+    // Attempt to merge live price from YESHWANTHPUR as the current month baseline
     const history = HISTORICAL_PRICES.find(h => h.cropId === cropId);
     if (!history) {
       return res.status(404).json({ success: false, message: 'Crop history not found' });
     }
+
+    const currentMonth = new Date().getMonth() + 1;
+    const liveEntries = await DailyCropPrice.find({ cropId });
+    if (liveEntries.length > 0) {
+      const avgLive = liveEntries.reduce((a, b) => a + b.pricePerQuintal, 0) / liveEntries.length;
+      const prices = [...history.monthlyAvgPrices];
+      prices[currentMonth - 1] = Math.round(avgLive);
+      
+      return res.json({
+        success: true,
+        data: {
+          ...history,
+          monthlyAvgPrices: prices
+        }
+      });
+    }
+
     res.json({ success: true, data: history });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to get price history' });
@@ -236,5 +281,26 @@ export const weatherAnalysis = async (req, res) => {
     res.json({ success: true, data: json });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Weather analysis error' });
+  }
+};
+
+// Admin endpoint to manually update today's APMC mandi market price for a crop
+export const updateMarketPrice = async (req, res) => {
+  try {
+    const { cropId, marketId, pricePerQuintal } = req.body;
+    if (!cropId || !marketId || !pricePerQuintal || Number(pricePerQuintal) <= 0) {
+      return res.status(400).json({ success: false, message: 'Crop ID, Market ID, and positive price are required.' });
+    }
+
+    const entry = await DailyCropPrice.findOneAndUpdate(
+      { cropId, marketId },
+      { pricePerQuintal: Number(pricePerQuintal), lastUpdated: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, message: 'Market price updated successfully', data: entry });
+  } catch (error) {
+    console.error('Error updating market price manually:', error);
+    res.status(500).json({ success: false, message: 'Failed to update market price.' });
   }
 };

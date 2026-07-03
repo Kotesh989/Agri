@@ -109,6 +109,7 @@ router.get('/crop-recommendation/crops', authenticate, cropRecommendationControl
 router.get('/crop-recommendation/markets', authenticate, cropRecommendationController.listMarkets);
 router.get('/crop-recommendation/price-history/:cropId', authenticate, cropRecommendationController.priceHistory);
 router.get('/crop-recommendation/weather-analysis', authenticate, cropRecommendationController.weatherAnalysis);
+router.put('/crop-recommendation/prices', authenticate, authorize('ADMIN'), cropRecommendationController.updateMarketPrice);
 
 // ============ SUPPLIER ROUTES ============
 router.post('/suppliers', authenticate, authorize('ADMIN'), requireStoreAccess, supplierController.createSupplier);
