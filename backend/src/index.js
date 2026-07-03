@@ -49,6 +49,7 @@ app.use('/api/auth', rateLimit({
   limit: Number(process.env.AUTH_RATE_LIMIT_MAX || 25),
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/users') || req.path.includes('/users/'),
 }));
 app.use('/api/auth/farmer/otp', rateLimit({
   windowMs: 15 * 60 * 1000,
