@@ -409,25 +409,13 @@ export const CropAdvisorPage = () => {
 
                   <div>
                     <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">District</label>
-                    <select 
-                      value={formData.districtId || formData.district} 
-                      disabled={!formData.state}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const node = districtsList.find(d => d.value === val);
-                        setFormData({ 
-                          ...formData, 
-                          district: node ? node.label : val, 
-                          districtId: node ? node.value : '', 
-                          taluk: '', talukId: '', 
-                          village: '', villageId: '' 
-                        });
-                      }}
+                    <input 
+                      type="text"
+                      placeholder="Enter District"
+                      value={formData.district}
+                      onChange={(e) => setFormData({ ...formData, district: e.target.value, districtId: '', taluk: '', talukId: '', village: '', villageId: '' })}
                       className="input w-full py-1.5 text-sm"
-                    >
-                      <option value="">Select District</option>
-                      {districtsList.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                    </select>
+                    />
                   </div>
 
                   <div>

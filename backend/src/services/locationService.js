@@ -27,20 +27,21 @@ export async function getOrSeedDistricts(stateId) {
     throw new Error('Invalid state node');
   }
 
-  const count = await LocationNode.countDocuments({ type: 'DISTRICT', parentId: stateId });
-  if (count > 0) {
-    return LocationNode.find({ type: 'DISTRICT', parentId: stateId }).sort({ name: 1 });
-  }
-
-  console.log(`[LocationService] Seeding District nodes for state: ${stateNode.name}...`);
   const districts = LOCATIONS.districts[stateNode.name] || [];
-  const districtNodes = districts.map(name => ({
-    name,
-    type: 'DISTRICT',
-    parentId: stateId
-  }));
+  
+  // Fetch existing districts for this state to find missing ones
+  const existingNodes = await LocationNode.find({ type: 'DISTRICT', parentId: stateId });
+  const existingNames = new Set(existingNodes.map(d => d.name.toLowerCase()));
 
-  if (districtNodes.length > 0) {
+  const missingDistricts = districts.filter(d => !existingNames.has(d.toLowerCase()));
+  
+  if (missingDistricts.length > 0) {
+    console.log(`[LocationService] Seeding ${missingDistricts.length} missing districts for: ${stateNode.name}...`);
+    const districtNodes = missingDistricts.map(name => ({
+      name,
+      type: 'DISTRICT',
+      parentId: stateId
+    }));
     await LocationNode.insertMany(districtNodes, { ordered: false }).catch(() => {});
   }
 
