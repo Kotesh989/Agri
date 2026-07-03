@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { LocationNode } from '../models/index.js';
 import { resolvePincode } from '../data/locationDatabase.js';
 import { getOrSeedStates, getOrSeedDistricts, resolveOrSeedLocationContext } from '../services/locationService.js';
@@ -31,14 +32,16 @@ export const getDistricts = async (req, res) => {
     const { stateId, state } = req.query;
 
     let targetStateNode = null;
-    if (stateId) {
+    if (stateId && mongoose.Types.ObjectId.isValid(stateId)) {
       targetStateNode = await LocationNode.findById(stateId);
-    } else if (state) {
-      targetStateNode = await LocationNode.findOne({ name: { $regex: new RegExp(`^${state}$`, 'i') }, type: 'STATE' });
+    }
+    
+    if (!targetStateNode && (stateId || state)) {
+      const name = stateId || state;
+      targetStateNode = await LocationNode.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') }, type: 'STATE' });
     }
 
     if (!targetStateNode) {
-      // Return empty if no state matched
       return res.json({ success: true, data: [] });
     }
 
@@ -56,12 +59,15 @@ export const getTaluks = async (req, res) => {
     const { districtId, district } = req.query;
 
     let parentId = districtId;
-    if (!parentId && district) {
+    if (parentId && !mongoose.Types.ObjectId.isValid(parentId)) {
+      const node = await LocationNode.findOne({ name: { $regex: new RegExp(`^${parentId}$`, 'i') }, type: 'DISTRICT' });
+      parentId = node ? node._id : null;
+    } else if (!parentId && district) {
       const node = await LocationNode.findOne({ name: { $regex: new RegExp(`^${district}$`, 'i') }, type: 'DISTRICT' });
-      if (node) parentId = node._id;
+      parentId = node ? node._id : null;
     }
 
-    if (!parentId) {
+    if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) {
       return res.json({ success: true, data: [] });
     }
 
@@ -79,12 +85,15 @@ export const getVillages = async (req, res) => {
     const { talukId, taluk } = req.query;
 
     let parentId = talukId;
-    if (!parentId && taluk) {
+    if (parentId && !mongoose.Types.ObjectId.isValid(parentId)) {
+      const node = await LocationNode.findOne({ name: { $regex: new RegExp(`^${parentId}$`, 'i') }, type: 'TALUK' });
+      parentId = node ? node._id : null;
+    } else if (!parentId && taluk) {
       const node = await LocationNode.findOne({ name: { $regex: new RegExp(`^${taluk}$`, 'i') }, type: 'TALUK' });
-      if (node) parentId = node._id;
+      parentId = node ? node._id : null;
     }
 
-    if (!parentId) {
+    if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) {
       return res.json({ success: true, data: [] });
     }
 

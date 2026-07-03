@@ -30,9 +30,10 @@ export const SearchableSelect = ({
 
   useEffect(() => {
     if (!fetchOptions) {
-      const q = search.toLowerCase();
-      const filtered = options.filter(opt => {
-        const labelText = typeof opt === 'object' ? opt.label : opt;
+      const q = (search || '').toLowerCase();
+      const filtered = (options || []).filter(opt => {
+        if (!opt) return false;
+        const labelText = typeof opt === 'object' ? (opt.label || '') : String(opt);
         return labelText.toLowerCase().includes(q);
       });
       setLocalOptions(filtered);
