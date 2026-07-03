@@ -18,6 +18,7 @@ import * as weatherController from '../controllers/weatherController.js';
 import * as soilController from '../controllers/soilController.js';
 import * as cropDiseaseController from '../controllers/cropDiseaseController.js';
 import * as machineryController from '../controllers/machineryController.js';
+import * as cropRecommendationController from '../controllers/cropRecommendationController.js';
 import { authenticate, authorize, requireStoreAccess } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -101,6 +102,13 @@ router.post('/machinery/bookings', authenticate, machineryController.createBooki
 router.patch('/machinery/bookings/:id/status', authenticate, machineryController.updateBookingStatus);
 router.get('/machinery/bookings', authenticate, machineryController.listBookings);
 router.post('/machinery/bookings/:id/reviews', authenticate, machineryController.addReview);
+
+// ============ CROP RECOMMENDATION ROUTES ============
+router.post('/crop-recommendation/analyze', authenticate, cropRecommendationController.analyze);
+router.get('/crop-recommendation/crops', authenticate, cropRecommendationController.listCrops);
+router.get('/crop-recommendation/markets', authenticate, cropRecommendationController.listMarkets);
+router.get('/crop-recommendation/price-history/:cropId', authenticate, cropRecommendationController.priceHistory);
+router.get('/crop-recommendation/weather-analysis', authenticate, cropRecommendationController.weatherAnalysis);
 
 // ============ SUPPLIER ROUTES ============
 router.post('/suppliers', authenticate, authorize('ADMIN'), requireStoreAccess, supplierController.createSupplier);
