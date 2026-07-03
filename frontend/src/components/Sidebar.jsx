@@ -48,7 +48,15 @@ export const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <aside className={`sticky top-0 hidden min-h-screen shrink-0 transition-[width] duration-200 lg:block ${collapsed ? 'w-20' : 'w-64'}`} style={{ backgroundColor: 'var(--neo-card)', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>
+    <aside 
+      className={`sticky hidden shrink-0 transition-[width] duration-200 lg:block ${collapsed ? 'w-20' : 'w-64'}`} 
+      style={{ 
+        backgroundColor: 'var(--neo-card)', 
+        borderRight: '1px solid rgba(255, 255, 255, 0.2)',
+        top: '64px',
+        height: 'calc(100vh - 64px)'
+      }}
+    >
       <div className="flex justify-end p-4 pb-2">
         <button
           type="button"
