@@ -1,18 +1,18 @@
 export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend, onClick }) => {
-  const colorClasses = {
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-50',
-    blue: 'border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950/35 dark:text-sky-50',
-    yellow: 'border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-50',
-    red: 'border-rose-200 bg-rose-50 text-rose-950 dark:border-rose-900 dark:bg-rose-950/35 dark:text-rose-50',
-    purple: 'border-violet-200 bg-violet-50 text-violet-950 dark:border-violet-900 dark:bg-violet-950/35 dark:text-violet-50',
+  const colorTextMap = {
+    emerald: 'text-[#2E7D32] dark:text-[#66BB6A]',
+    blue: 'text-[#3B82F6]',
+    yellow: 'text-[#F59E0B]',
+    red: 'text-[#EF4444]',
+    purple: 'text-violet-600 dark:text-violet-400',
   };
 
   const iconBgClasses = {
-    emerald: 'bg-emerald-600 text-white',
-    blue: 'bg-sky-600 text-white',
-    yellow: 'bg-amber-500 text-white',
-    red: 'bg-rose-600 text-white',
-    purple: 'bg-violet-600 text-white',
+    emerald: 'bg-[#2E7D32]/10 text-[#2E7D32] dark:text-[#66BB6A]',
+    blue: 'bg-[#3B82F6]/10 text-[#3B82F6]',
+    yellow: 'bg-[#F59E0B]/10 text-[#F59E0B]',
+    red: 'bg-[#EF4444]/10 text-[#EF4444]',
+    purple: 'bg-violet-600/10 text-violet-600',
   };
 
   const interactiveProps = onClick
@@ -29,23 +29,28 @@ export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend, o
   return (
     <div
       {...interactiveProps}
-      className={`group rounded-lg border p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md-soft ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900' : ''} ${colorClasses[color] || colorClasses.emerald}`}
+      className={`group rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/20' : ''}`}
+      style={{
+        backgroundColor: 'var(--neo-card)',
+        boxShadow: 'var(--shadow-out)',
+        border: '1px solid rgba(255, 255, 255, 0.4)'
+      }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
-          <p className="text-xs font-semibold uppercase text-current/70">{title}</p>
-          <p className="mt-3 text-3xl font-bold">{value}</p>
+          <p className="text-xs font-semibold uppercase text-slate-400 dark:text-gray-500 tracking-wider">{title}</p>
+          <p className={`mt-3 text-3xl font-extrabold ${colorTextMap[color] || colorTextMap.emerald}`}>{value}</p>
           {trend && (
-            <p className="mt-3 flex items-center gap-1 text-xs font-medium text-current/70">
-              <span className="inline-block h-2 w-2 rounded-full bg-current/40"></span>
+            <p className="mt-3 flex items-center gap-1 text-xs font-medium text-slate-500">
+              <span className="inline-block h-2 w-2 rounded-full bg-slate-300"></span>
               {trend}
             </p>
           )}
-          {onClick && <p className="mt-3 text-xs font-semibold text-current/75">View details</p>}
+          {onClick && <p className="mt-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400">View details →</p>}
         </div>
         {Icon && (
-          <div className={`rounded-lg p-3 ${iconBgClasses[color]}`}>
-            <Icon className="h-6 w-6" strokeWidth={1.75} />
+          <div className={`rounded-xl p-3.5 ${iconBgClasses[color]}`}>
+            <Icon className="h-6 w-6" strokeWidth={2} />
           </div>
         )}
       </div>

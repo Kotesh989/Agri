@@ -48,19 +48,20 @@ export const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <aside className={`sticky top-0 hidden min-h-screen shrink-0 border-r border-slate-200/80 bg-white transition-[width] duration-200 dark:border-gray-800 dark:bg-[#111814] lg:block ${collapsed ? 'w-20' : 'w-64'}`}>
+    <aside className={`sticky top-0 hidden min-h-screen shrink-0 transition-[width] duration-200 lg:block ${collapsed ? 'w-20' : 'w-64'}`} style={{ backgroundColor: 'var(--neo-card)', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>
       <div className="flex justify-end p-4 pb-2">
         <button
           type="button"
           onClick={() => setCollapsed((current) => !current)}
-          className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-gray-800 dark:text-gray-300 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
+          className="rounded-lg border border-slate-200/40 p-2 text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-gray-800 dark:text-gray-300 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
+          style={{ boxShadow: 'var(--shadow-btn)' }}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
-      <div className="space-y-1 px-4 pb-4">
+      <div className="space-y-2 px-4 pb-4">
         {(user?.role === 'FARMER' ? farmerMenuItems : menuItems)
           .filter((item) => !item.adminOnly || user?.role === 'ADMIN')
           .map((item, index) => {
@@ -72,10 +73,10 @@ export const Sidebar = () => {
                 key={item.labelKey}
                 to={item.path}
                 title={collapsed ? t(item.labelKey) : undefined}
-                className={`group relative flex items-center overflow-hidden rounded-lg py-3 transition-all duration-200 ${
+                className={`group relative flex items-center overflow-hidden rounded-xl py-3.5 transition-all duration-200 ${
                   isActive
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-800/70'
+                    ? 'sidebar-link-active'
+                    : 'text-slate-600 hover:bg-white/50 hover:shadow-[2px_2px_5px_rgba(0,0,0,0.05)] dark:text-gray-300 dark:hover:bg-gray-800/40'
                 } ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}
               >
                 <div className="flex items-center space-x-3 relative z-10">

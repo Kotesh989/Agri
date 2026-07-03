@@ -64,40 +64,40 @@ export const DashboardPage = () => {
         <Navbar />
         <main className="app-main">
           {/* Welcome Banner */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-800 p-6 text-white shadow-lg mb-8">
-            <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 rounded-full bg-white/5 blur-2xl" />
-            <div className="absolute left-1/3 bottom-0 translate-y-12 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="relative overflow-hidden rounded-3xl p-6 text-slate-800 dark:text-white mb-8 border border-white/40 dark:border-white/5" style={{ backgroundColor: 'var(--neo-card)', boxShadow: 'var(--shadow-out)' }}>
+            <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 rounded-full bg-emerald-500/5 blur-2xl" />
+            <div className="absolute left-1/3 bottom-0 translate-y-12 w-96 h-96 rounded-full bg-emerald-500/5 blur-3xl" />
             
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <span className="bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                <span className="bg-emerald-600/10 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
                   Admin Dashboard
                 </span>
-                <h1 className="text-3xl sm:text-4xl font-extrabold mt-3 text-white tracking-tight">
+                <h1 className="text-3xl sm:text-4xl font-extrabold mt-4 tracking-tight" style={{ color: 'var(--neo-text)' }}>
                   Welcome to {t('app.name')}
                 </h1>
-                <p className="mt-1.5 text-emerald-100 text-sm max-w-xl font-medium">
+                <p className="mt-2 text-slate-500 dark:text-gray-400 text-sm max-w-xl font-medium">
                   Monitor live inventory, farmer credit ledger records, and coordinate machineries seamlessly.
                 </p>
               </div>
 
               {/* Quick Actions Panel */}
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap gap-3">
                 <button 
                   onClick={() => navigate('/sales')} 
-                  className="bg-white hover:bg-emerald-50 text-emerald-800 transition-all font-bold px-4 py-2.5 rounded-xl text-xs shadow-md"
+                  className="btn btn-primary text-xs"
                 >
                   + New Sale
                 </button>
                 <button 
                   onClick={() => navigate('/soil-health')} 
-                  className="bg-emerald-500/30 hover:bg-emerald-500/40 border border-emerald-400/30 text-white transition-all font-bold px-4 py-2.5 rounded-xl text-xs"
+                  className="btn btn-secondary text-xs"
                 >
                   NPK Calculator
                 </button>
                 <button 
                   onClick={() => navigate('/machinery')} 
-                  className="bg-teal-500/30 hover:bg-teal-500/40 border border-teal-400/30 text-white transition-all font-bold px-4 py-2.5 rounded-xl text-xs"
+                  className="btn btn-secondary text-xs"
                 >
                   Rentals Hub
                 </button>
