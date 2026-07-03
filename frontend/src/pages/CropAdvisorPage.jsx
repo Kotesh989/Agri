@@ -384,70 +384,73 @@ export const CropAdvisorPage = () => {
                 <div className="space-y-3">
                   <span className="text-xs font-black uppercase text-slate-400 tracking-wider">Location details</span>
                   
-                  <SearchableSelect 
-                    label="State" 
-                    options={statesList} 
-                    value={formData.stateId || formData.state} 
-                    onChange={(val) => {
-                      const node = statesList.find(s => s.value === val);
-                      setFormData({ 
-                        ...formData, 
-                        state: node ? node.label : val, 
-                        stateId: node ? node.value : '', 
-                        district: '', districtId: '', 
-                        taluk: '', talukId: '', 
-                        village: '', villageId: '' 
-                      });
-                    }} 
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">State</label>
+                    <select 
+                      value={formData.stateId || formData.state} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const node = statesList.find(s => s.value === val);
+                        setFormData({ 
+                          ...formData, 
+                          state: node ? node.label : val, 
+                          stateId: node ? node.value : '', 
+                          district: '', districtId: '', 
+                          taluk: '', talukId: '', 
+                          village: '', villageId: '' 
+                        });
+                      }}
+                      className="input w-full py-1.5 text-sm"
+                    >
+                      <option value="">Select State</option>
+                      {statesList.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </div>
 
-                  <SearchableSelect 
-                    label="District" 
-                    options={districtsList} 
-                    value={formData.districtId || formData.district} 
-                    disabled={!formData.state}
-                    onChange={(val) => {
-                      const node = districtsList.find(d => d.value === val);
-                      setFormData({ 
-                        ...formData, 
-                        district: node ? node.label : val, 
-                        districtId: node ? node.value : '', 
-                        taluk: '', talukId: '', 
-                        village: '', villageId: '' 
-                      });
-                    }} 
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">District</label>
+                    <select 
+                      value={formData.districtId || formData.district} 
+                      disabled={!formData.state}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const node = districtsList.find(d => d.value === val);
+                        setFormData({ 
+                          ...formData, 
+                          district: node ? node.label : val, 
+                          districtId: node ? node.value : '', 
+                          taluk: '', talukId: '', 
+                          village: '', villageId: '' 
+                        });
+                      }}
+                      className="input w-full py-1.5 text-sm"
+                    >
+                      <option value="">Select District</option>
+                      {districtsList.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                    </select>
+                  </div>
 
-                  <SearchableSelect 
-                    label="Taluk / Tehsil" 
-                    options={taluksList} 
-                    value={formData.talukId || formData.taluk} 
-                    disabled={!formData.district}
-                    onChange={(val) => {
-                      const node = taluksList.find(t => t.value === val);
-                      setFormData({ 
-                        ...formData, 
-                        taluk: node ? node.label : val, 
-                        talukId: node ? node.value : '', 
-                        village: '', villageId: '' 
-                      });
-                    }} 
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">Taluk / Tehsil</label>
+                    <input 
+                      type="text"
+                      placeholder="Enter Taluk / Tehsil"
+                      value={formData.taluk}
+                      onChange={(e) => setFormData({ ...formData, taluk: e.target.value, talukId: '', village: '', villageId: '' })}
+                      className="input w-full py-1.5 text-sm"
+                    />
+                  </div>
 
-                  <SearchableSelect 
-                    label="Village" 
-                    options={villagesList} 
-                    value={formData.villageId || formData.village} 
-                    disabled={!formData.taluk}
-                    onChange={(val) => {
-                      const node = villagesList.find(v => v.value === val);
-                      setFormData({ 
-                        ...formData, 
-                        village: node ? node.label : val, 
-                        villageId: node ? node.value : '' 
-                      });
-                    }} 
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">Village</label>
+                    <input 
+                      type="text"
+                      placeholder="Enter Village"
+                      value={formData.village}
+                      onChange={(e) => setFormData({ ...formData, village: e.target.value, villageId: '' })}
+                      className="input w-full py-1.5 text-sm"
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-xs font-semibold mb-1 text-slate-500 dark:text-gray-400">PIN Code</label>
