@@ -129,26 +129,15 @@ export const registerFarmer = async (req, res) => {
     if (!admin) {
       return res.status(400).json({ success: false, message: 'A valid store admin email is required for farmer registration' });
     }
-    const customer = await Customer.create({
-      adminId: admin._id,
-      name,
-      email,
-      mobileNumber,
-      address,
-      village,
-      taluk,
-      district,
-      state,
-      creditLimit: 0,
-    });
     const user = await createUser({
       email,
       mobileNumber,
       password,
       name,
       role: 'FARMER',
-      customerId: customer._id,
+      customerId: null, // will be created when admin activates
       adminId: admin._id,
+      address,
       village,
       taluk,
       district,
@@ -157,7 +146,7 @@ export const registerFarmer = async (req, res) => {
       profilePhoto,
       isActive: false, // set false for admin approval flow
     });
-    res.status(201).json({ success: true, message: 'Farmer account created successfully', data: { user: publicUser(user), customer } });
+    res.status(201).json({ success: true, message: 'Farmer account created successfully', data: { user: publicUser(user) } });
   } catch (error) {
     if (error.code === 11000 || error.message === 'User already exists') {
       return res.status(400).json({ success: false, message: 'Farmer account already exists' });
@@ -516,6 +505,49 @@ export const toggleUserStatus = async (req, res) => {
     }
 
     user.isActive = !user.isActive;
+
+    // If a FARMER is being activated and doesn't have a Customer profile yet, create/link it now
+    if (user.role === 'FARMER' && user.isActive) {
+      if (!user.customerId) {
+        // 1. Check if a Customer with the same mobile or email already exists for this admin
+        let customer = await Customer.findOne({
+          adminId: user.adminId,
+          $or: [
+            { mobileNumber: user.mobileNumber },
+            { email: user.email.toLowerCase() }
+          ]
+        });
+
+        // 2. If not, create a new Customer profile
+        if (!customer) {
+          customer = await Customer.create({
+            adminId: user.adminId,
+            name: user.name,
+            email: user.email,
+            mobileNumber: user.mobileNumber,
+            address: user.address || '',
+            village: user.village || '',
+            taluk: user.taluk || '',
+            district: user.district || '',
+            state: user.state || '',
+            creditLimit: 0,
+          });
+        }
+
+        user.customerId = customer._id;
+
+        // 3. Link them to the admin's default store
+        const store = await Store.findOne({ ownerAdminId: user.adminId });
+        if (store) {
+          await FarmerStoreLink.findOneAndUpdate(
+            { farmerId: user._id, storeId: store._id },
+            { customerId: customer._id, lastVisitDate: new Date() },
+            { upsert: true }
+          );
+        }
+      }
+    }
+
     await user.save();
 
     res.json({
