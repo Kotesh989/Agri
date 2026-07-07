@@ -25,13 +25,18 @@ export const sendEmailOtp = async ({ to, otp, purpose = 'password reset' }) => {
   if (process.env.EMAIL_PROVIDER === 'RESEND') {
     if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) throw new Error('Resend is not configured');
     const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: process.env.RESEND_FROM,
       to,
       subject: `Agri Shop ${purpose} OTP`,
       text: `Your ${purpose} OTP is ${otp}. It expires in 5 minutes.`,
       html: `<p>Your ${purpose} OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
     });
+    if (result.error) {
+      console.error('Resend delivery error:', JSON.stringify(result.error));
+      throw new Error(`Resend failed: ${result.error.message || JSON.stringify(result.error)}`);
+    }
+    console.info(`Resend email delivered to ${to}, id: ${result.data?.id}`);
     return;
   }
   const transporter = getMailTransport();
