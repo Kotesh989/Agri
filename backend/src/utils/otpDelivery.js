@@ -47,28 +47,66 @@ export const sendEmailOtp = async ({ to, otp, purpose = 'password reset' }) => {
   }
 
   if (process.env.EMAIL_PROVIDER === 'BREVO') {
-    if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM) throw new Error('Brevo is not configured');
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        sender: { name: 'Agri Shop', email: process.env.BREVO_FROM },
-        to: [{ email: to }],
-        subject: `Agri Shop ${purpose} OTP`,
-        textContent: `Your ${purpose} OTP is ${otp}. It expires in 5 minutes.`,
-        htmlContent: `<p>Your ${purpose} OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`
-      })
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Brevo failed: ${errText}`);
+    const apiKey = process.env.BREVO_API_KEY;
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_FROM;
+    const senderName = process.env.BREVO_SENDER_NAME || 'Agri Shop';
+
+    // 1. Diagnostics Logging (without exposing secrets)
+    console.info('[Brevo Debug] API Key configured:', !!apiKey);
+    console.info('[Brevo Debug] Sender Name:', senderName);
+    console.info('[Brevo Debug] Sender Email:', senderEmail);
+    console.info('[Brevo Debug] Recipient Email:', to);
+
+    // 2. Strict Validations
+    if (!apiKey) {
+      throw new Error('Brevo API key is missing. Please configure BREVO_API_KEY in your environment variables.');
     }
-    console.info(`Brevo email delivered to ${to}`);
-    return;
+    if (!senderEmail) {
+      throw new Error('Brevo sender email is missing. Please configure BREVO_SENDER_EMAIL or BREVO_FROM in your environment variables.');
+    }
+
+    // Email format validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(senderEmail)) {
+      throw new Error(`Invalid Brevo sender email format: "${senderEmail}". Please configure a valid email address in BREVO_SENDER_EMAIL or BREVO_FROM.`);
+    }
+    if (!emailRegex.test(to)) {
+      throw new Error(`Invalid recipient email format: "${to}".`);
+    }
+
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': apiKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: to }],
+          subject: `Agri Shop ${purpose} OTP`,
+          textContent: `Your ${purpose} OTP is ${otp}. It expires in 5 minutes.`,
+          htmlContent: `<p>Your ${purpose} OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        let errMsg = errText;
+        try {
+          const parsed = JSON.parse(errText);
+          errMsg = parsed.message || errText;
+        } catch (_) {}
+        throw new Error(`Brevo API returned error status ${response.status}: ${errMsg}`);
+      }
+
+      console.info(`[Brevo] Email OTP successfully sent to ${to}`);
+      return;
+    } catch (err) {
+      console.error('[Brevo Error] Failed to execute sendEmailOtp:', err.message);
+      throw err;
+    }
   }
 
   if (process.env.EMAIL_PROVIDER === 'SENDGRID') {
