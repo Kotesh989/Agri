@@ -96,7 +96,7 @@ export const LoginPage = () => {
         addNotification('This account is not registered. Redirecting to registration page...', 'error');
         setTimeout(() => {
           navigate(portal === 'farmer' ? '/register/farmer' : '/register/admin');
-        }, 2000);
+        }, 500);
       } else {
         showError(error, 'Invalid email, mobile number, password, or OTP.');
       }
@@ -117,7 +117,7 @@ export const LoginPage = () => {
         addNotification('This mobile number is not registered. Redirecting to registration page...', 'error');
         setTimeout(() => {
           navigate('/register/farmer');
-        }, 2000);
+        }, 500);
       } else {
         showError(error, t('auth.otpFailed'));
       }
