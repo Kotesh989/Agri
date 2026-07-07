@@ -458,6 +458,11 @@ export const addCustomerPurchasedItem = async (req, res) => {
       }],
     });
 
+    if (purchasedItem && typeof purchasedItem.save === 'function') {
+      purchasedItem.invoiceId = invoice._id;
+      await purchasedItem.save();
+    }
+
     await StockMovement.create({
       adminId: getRequestAdminId(req),
       storeId: getRequestStoreId(req),

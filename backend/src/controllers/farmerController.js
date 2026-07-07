@@ -337,7 +337,11 @@ export const listShopInvoices = async (req, res) => {
         .populate('storeId')
         .populate('adminId'),
       customerIds.length > 0
-        ? CustomerPurchasedItem.find({ customerId: { $in: customerIds }, storeId }).sort({ purchaseDate: -1 }).populate('product').populate('storeId').populate('adminId')
+        ? CustomerPurchasedItem.find({
+            customerId: { $in: customerIds },
+            storeId,
+            $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
+          }).sort({ purchaseDate: -1 }).populate('product').populate('storeId').populate('adminId')
         : [],
     ]);
 

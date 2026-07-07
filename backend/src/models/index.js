@@ -116,6 +116,7 @@ const customerPurchasedItemSchema = new Schema({
   adminId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
   customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
+  invoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice', index: true },
   productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
   productName: { type: String, required: true, trim: true },
   category: { type: String, enum: ['FERTILIZER', 'PESTICIDE'], required: true },

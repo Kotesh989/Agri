@@ -325,7 +325,9 @@ export const listSales = async (req, res) => {
         purchaseDate: invoice.invoiceDate,
       }))
     );
-    const manualFilter = getOwnerFilter(req);
+    const manualFilter = getOwnerFilter(req, {
+      $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }],
+    });
     if (customerId) manualFilter.customerId = customerId;
     if (startDate || endDate) {
       manualFilter.purchaseDate = {};
