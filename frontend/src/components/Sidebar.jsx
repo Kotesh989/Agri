@@ -103,25 +103,27 @@ export const Sidebar = () => {
       </div>
 
       {/* Sidebar Search Trigger */}
-      <div className="px-4 py-3">
-        <button
-          onClick={openSearch}
-          className={`flex items-center gap-3 w-full rounded-xl border border-slate-200/60 bg-slate-50 px-3 py-2 text-left text-xs text-slate-400 transition hover:bg-slate-100 dark:border-white/5 dark:bg-[#151D19]/40 dark:hover:bg-[#151D19]/80 ${
-            collapsed ? 'justify-center' : ''
-          }`}
-          title="Search dashboard (Ctrl+K)"
-        >
-          <Search className="h-4 w-4 shrink-0" />
-          {!collapsed && (
-            <span className="flex-1 flex justify-between items-center">
-              <span>{t('common.search')}...</span>
-              <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                ⌘K
-              </kbd>
-            </span>
-          )}
-        </button>
-      </div>
+      {user?.role !== 'FARMER' && (
+        <div className="px-4 py-3">
+          <button
+            onClick={openSearch}
+            className={`flex items-center gap-3 w-full rounded-xl border border-slate-200/60 bg-slate-50 px-3 py-2 text-left text-xs text-slate-400 transition hover:bg-slate-100 dark:border-white/5 dark:bg-[#151D19]/40 dark:hover:bg-[#151D19]/80 ${
+              collapsed ? 'justify-center' : ''
+            }`}
+            title="Search dashboard (Ctrl+K)"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            {!collapsed && (
+              <span className="flex-1 flex justify-between items-center">
+                <span>{t('common.search')}...</span>
+                <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                  ⌘K
+                </kbd>
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Navigation Links */}
       <div className="flex-1 space-y-1 px-3 overflow-y-auto py-2">

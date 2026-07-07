@@ -51,6 +51,7 @@ export const CommandMenu = () => {
 
   // Toggle Command Menu via Ctrl + K or Cmd + K
   useEffect(() => {
+    if (user?.role === 'FARMER') return;
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -59,14 +60,15 @@ export const CommandMenu = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [user]);
 
   // Listen to custom 'open-command-menu' event (from Sidebar or Header search)
   useEffect(() => {
+    if (user?.role === 'FARMER') return;
     const handleOpen = () => setIsOpen(true);
     window.addEventListener('open-command-menu', handleOpen);
     return () => window.removeEventListener('open-command-menu', handleOpen);
-  }, []);
+  }, [user]);
 
   // Handle escape key to close
   useEffect(() => {
@@ -91,6 +93,8 @@ export const CommandMenu = () => {
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
+
+  if (user?.role === 'FARMER') return null;
 
   // Keyboard navigation inside list
   const handleKeyDown = (e) => {
