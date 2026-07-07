@@ -6,6 +6,7 @@ import { ConfirmProvider } from './components/ConfirmProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { VoiceAssistant } from './components/VoiceAssistant';
+import { CommandMenu } from './components/CommandMenu';
 
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -216,7 +217,8 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" />} />
               <Route path="*" element={<Navigate to="/dashboard" />} />
             </Routes>
-              <VoiceAssistant />
+               <VoiceAssistant />
+               <CommandMenu />
           </ErrorBoundary>
           </ConfirmProvider>
         </NotificationProvider>

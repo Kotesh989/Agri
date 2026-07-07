@@ -29,12 +29,7 @@ export const StatCard = ({ title, value, icon: Icon, color = 'emerald', trend, o
   return (
     <div
       {...interactiveProps}
-      className={`group rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/20' : ''}`}
-      style={{
-        backgroundColor: 'var(--neo-card)',
-        boxShadow: 'var(--shadow-out)',
-        border: '1px solid rgba(255, 255, 255, 0.4)'
-      }}
+      className={`group card p-5 ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/20' : ''}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">

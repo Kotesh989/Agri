@@ -2,142 +2,121 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Neumorphism Design Tokens & Utilities */
+/* Premium Modern Design System Tokens */
 :root {
-  --neo-bg: #F3F6F9;
-  --neo-card: #F7F9FC;
-  --neo-text: #1F2937;
-  --neo-text-sec: #6B7280;
+  --app-bg: #F8FAFC;
+  --app-card: #FFFFFF;
+  --app-border: rgba(16, 185, 129, 0.08);
+  --app-border-hover: rgba(16, 185, 129, 0.2);
+  --app-text: #0F172A;
+  --app-text-sec: #475569;
   
-  --primary-green: #2E7D32;
-  --light-green: #66BB6A;
+  --primary-emerald: #10B981;
+  --primary-emerald-hover: #059669;
   
-  --shadow-out: 8px 8px 16px #d5dae2, -8px -8px 16px #ffffff;
-  --shadow-out-hover: 12px 12px 24px #cbd1db, -12px -12px 24px #ffffff;
-  --shadow-in: inset 4px 4px 8px #d5dae2, inset -4px -4px 8px #ffffff;
-  --shadow-btn: 5px 5px 10px #d5dae2, -5px -5px 10px #ffffff;
-  --shadow-btn-hover: 2px 2px 5px #d5dae2, -2px -2px 5px #ffffff;
-  --shadow-btn-active: inset 3px 3px 6px #d5dae2, inset -3px -3px 6px #ffffff;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(16, 185, 129, 0.04), 0 4px 6px -4px rgba(16, 185, 129, 0.04);
+  --shadow-hover: 0 20px 25px -5px rgba(16, 185, 129, 0.08), 0 8px 10px -6px rgba(16, 185, 129, 0.08);
 }
 
 .dark {
-  --neo-bg: #0F1512;
-  --neo-card: #151D19;
-  --neo-text: #F3F4F6;
-  --neo-text-sec: #9CA3AF;
+  --app-bg: #090D0B;
+  --app-card: #0F1512;
+  --app-border: rgba(255, 255, 255, 0.06);
+  --app-border-hover: rgba(16, 185, 129, 0.25);
+  --app-text: #F8FAFC;
+  --app-text-sec: #94A3B8;
   
-  --shadow-out: 8px 8px 16px #0b0f0c, -8px -8px 16px #1f2a24;
-  --shadow-out-hover: 12px 12px 24px #080b09, -12px -12px 24px #26332c;
-  --shadow-in: inset 4px 4px 8px #0b0f0c, inset -4px -4px 8px #1f2a24;
-  --shadow-btn: 5px 5px 10px #0b0f0c, -5px -5px 10px #1f2a24;
-  --shadow-btn-hover: 2px 2px 5px #0b0f0c, -2px -2px 5px #1f2a24;
-  --shadow-btn-active: inset 3px 3px 6px #0b0f0c, inset -3px -3px 6px #1f2a24;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  --shadow-hover: 0 20px 25px -5px rgba(16, 185, 129, 0.12), 0 8px 10px -6px rgba(16, 185, 129, 0.08);
 }
 
 /* Base resets & typography */
-* {
-  @apply transition-all duration-200;
-}
-
 body {
-  background-color: var(--neo-bg);
-  color: var(--neo-text);
+  background-color: var(--app-bg);
+  color: var(--app-text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  @apply antialiased;
+  @apply antialiased transition-colors duration-300;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  color: var(--neo-text);
-  @apply font-bold tracking-tight;
+  color: var(--app-text);
+  @apply font-semibold tracking-tight;
 }
 
-/* Neumorphic Cards */
+/* Premium Card Designs */
 .card {
-  background-color: var(--neo-card);
-  box-shadow: var(--shadow-out);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background-color: var(--app-card);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--shadow-md);
   @apply rounded-2xl p-6 transition-all duration-300;
 }
 
-.dark .card {
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
 .card:hover {
-  box-shadow: var(--shadow-out-hover);
-  @apply transform -translate-y-1 border-emerald-500/20 dark:border-emerald-400/20;
+  border-color: var(--app-border-hover);
+  box-shadow: var(--shadow-hover);
+  @apply -translate-y-1;
 }
 
-.card-inset {
-  background-color: var(--neo-card);
-  box-shadow: var(--shadow-in);
-  @apply rounded-2xl p-6;
+/* modern flat input designs */
+.input, .textarea {
+  background-color: var(--app-card);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  @apply w-full rounded-xl px-4 py-3 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:placeholder:text-gray-500;
 }
 
-/* Neumorphic Buttons */
+/* Premium Button Designs */
 .btn {
-  background-color: var(--neo-card);
-  box-shadow: var(--shadow-btn);
-  color: var(--neo-text);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold transition-all duration-200 focus:outline-none disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-95;
+  background-color: var(--app-card);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  box-shadow: var(--shadow-sm);
 }
 
-.dark .btn {
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.btn:hover {
-  box-shadow: var(--shadow-btn-hover);
-  @apply transform -translate-y-0.5;
-}
-
-.btn:active {
-  box-shadow: var(--shadow-btn-active);
-  @apply transform translate-y-0;
+.btn:hover:not(:disabled) {
+  border-color: var(--app-border-hover);
+  box-shadow: var(--shadow-md);
+  @apply -translate-y-0.5;
 }
 
 .btn-primary {
-  background-color: var(--primary-green);
+  background-color: var(--primary-emerald);
   color: #ffffff !important;
-  box-shadow: 4px 4px 10px rgba(46, 125, 50, 0.3), -4px -4px 10px rgba(255, 255, 255, 0.5);
   border: none;
+  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.3);
 }
 
-.btn-primary:hover {
-  background-color: #246327;
-  box-shadow: 2px 2px 5px rgba(46, 125, 50, 0.4);
-}
-
-.btn-primary:active {
-  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.2);
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-emerald-hover);
+  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.4);
 }
 
 .btn-secondary {
-  background-color: var(--neo-card);
-  box-shadow: var(--shadow-btn);
-  color: var(--neo-text-sec);
+  background-color: transparent;
+  border: 1px solid var(--app-border);
+  color: var(--app-text-sec);
 }
 
-.btn-secondary:hover {
-  color: var(--primary-green);
-  border-color: var(--light-green);
+.btn-secondary:hover:not(:disabled) {
+  color: var(--primary-emerald);
+  background-color: rgba(16, 185, 129, 0.04);
 }
 
 .btn-danger {
   background-color: #EF4444;
   color: #ffffff !important;
-  box-shadow: 4px 4px 10px rgba(239, 68, 68, 0.3);
   border: none;
+  box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.3);
 }
 
-.btn-danger:hover {
+.btn-danger:hover:not(:disabled) {
   background-color: #DC2626;
-  box-shadow: 2px 2px 5px rgba(239, 68, 68, 0.4);
-}
-
-.btn-danger:active {
-  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 20px 0 rgba(239, 68, 68, 0.4);
 }
 
 .btn-sm {
@@ -148,24 +127,12 @@ h1, h2, h3, h4, h5, h6 {
   @apply px-6 py-4 text-lg rounded-2xl;
 }
 
-/* Inset Inputs */
-.input, .textarea {
-  background-color: var(--neo-bg);
-  box-shadow: var(--shadow-in);
-  color: var(--neo-text);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  @apply w-full rounded-xl px-4 py-3 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-emerald-500 dark:placeholder:text-gray-500;
-}
-
-.dark .input, .dark .textarea {
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* Tables */
+/* Premium Tables */
 .table-container {
-  background-color: var(--neo-card);
-  box-shadow: var(--shadow-out);
-  @apply rounded-2xl overflow-hidden border border-white/40 dark:border-white/5;
+  background-color: var(--app-card);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--shadow-md);
+  @apply rounded-2xl overflow-hidden;
 }
 
 .table {
@@ -173,83 +140,94 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .table thead {
-  background-color: var(--neo-bg);
-  @apply text-slate-700 dark:text-gray-300;
+  background-color: rgba(16, 185, 129, 0.02);
 }
 
 .table th {
-  color: var(--neo-text-sec);
-  @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-gray-800;
+  color: var(--app-text-sec);
+  border-bottom: 1px solid var(--app-border);
+  @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider;
 }
 
 .table td {
-  @apply px-6 py-4 text-left border-b border-slate-100 dark:border-gray-800/50;
+  border-bottom: 1px solid var(--app-border);
+  @apply px-6 py-4 text-left text-sm text-slate-600 dark:text-gray-300;
+}
+
+.table tbody tr {
+  @apply transition-colors duration-150;
 }
 
 .table tbody tr:hover {
-  background-color: rgba(46, 125, 50, 0.05);
+  background-color: rgba(16, 185, 129, 0.02);
 }
 
 /* Badges */
 .badge {
-  @apply inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
-  box-shadow: var(--shadow-btn);
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
+  border: 1px solid currentColor;
 }
 
 .badge-green {
-  background-color: rgba(34, 197, 94, 0.15);
-  color: #22C55E;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10B981;
 }
 
 .badge-yellow {
-  background-color: rgba(245, 158, 11, 0.15);
+  background-color: rgba(245, 158, 11, 0.1);
   color: #F59E0B;
 }
 
 .badge-red {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: rgba(239, 68, 68, 0.1);
   color: #EF4444;
 }
 
 .badge-blue {
-  background-color: rgba(59, 130, 246, 0.15);
+  background-color: rgba(59, 130, 246, 0.1);
   color: #3B82F6;
 }
 
-/* Sidebar Specific Neumorphic styles */
+/* Sidebar Active states */
 .sidebar-link-active {
-  background-color: var(--neo-bg);
-  box-shadow: var(--shadow-in);
-  color: var(--primary-green) !important;
-  @apply font-bold rounded-xl border border-white/20 dark:border-white/5;
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  color: var(--primary-emerald) !important;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  @apply font-semibold rounded-xl;
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  @apply w-2.5 h-2.5;
+  @apply w-2 h-2;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--neo-bg);
+  background: var(--app-bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--light-green);
-  @apply rounded-full hover:bg-emerald-600;
+  background: rgba(16, 185, 129, 0.2);
+  @apply rounded-full hover:bg-emerald-500/40;
 }
 
+/* Layout shell overrides */
 .app-shell {
-  background-color: var(--neo-bg);
-  padding-top: 64px; /* Height of the fixed navbar */
+  background-color: var(--app-bg);
+  padding-top: 64px;
   @apply flex min-h-screen;
 }
 
+.app-content {
+  @apply flex-1 flex flex-col min-w-0;
+}
+
 .app-main {
-  background-color: var(--neo-bg);
+  background-color: var(--app-bg);
   @apply flex-1 overflow-auto p-4 sm:p-6 lg:p-8;
 }
 
 aside {
   height: calc(100vh - 64px) !important;
   top: 64px !important;
+  border-right: 1px solid var(--app-border) !important;
 }
