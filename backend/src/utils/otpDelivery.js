@@ -1,3 +1,4 @@
+import dns from 'dns';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
@@ -10,13 +11,16 @@ const getMailTransport = () => {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === 'true',
-    family: 4,
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 15000,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
+    },
+    // Force IPv4 lookup to prevent ENETUNREACH issues on Render
+    lookup: (hostname, options, callback) => {
+      dns.lookup(hostname, { family: 4 }, callback);
     },
   });
 };
