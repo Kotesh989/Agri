@@ -199,7 +199,7 @@ const loginWithRole = async (req, res, expectedRole) => {
       try {
         await sendEmailOtp({ to: user.email, otp, purpose: 'login' });
       } catch (err) {
-        console.warn('Failed to send email OTP, logging locally:', err.message);
+        console.warn('Failed to send email OTP:', err.message, '| Code:', err.code, '| Response:', err.response);
       }
 
       return res.json({
