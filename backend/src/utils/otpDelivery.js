@@ -48,8 +48,20 @@ export const sendEmailOtp = async ({ to, otp, purpose = 'password reset' }) => {
 
   if (process.env.EMAIL_PROVIDER === 'BREVO') {
     const apiKey = process.env.BREVO_API_KEY;
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_FROM;
-    const senderName = process.env.BREVO_SENDER_NAME || 'Agri Shop';
+    let senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_FROM;
+    let senderName = process.env.BREVO_SENDER_NAME || 'Agri Shop';
+
+    // Parse email out of "Name <email@example.com>" format
+    if (senderEmail && senderEmail.includes('<') && senderEmail.includes('>')) {
+      const match = senderEmail.match(/<([^>]+)>/);
+      if (match && match[1]) {
+        if (!process.env.BREVO_SENDER_NAME) {
+          const namePart = senderEmail.split('<')[0].trim();
+          if (namePart) senderName = namePart;
+        }
+        senderEmail = match[1].trim();
+      }
+    }
 
     // 1. Diagnostics Logging (without exposing secrets)
     console.info('[Brevo Debug] API Key configured:', !!apiKey);
