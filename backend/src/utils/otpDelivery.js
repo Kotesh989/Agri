@@ -2,6 +2,8 @@ import dns from 'dns';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
+dns.setDefaultResultOrder('ipv4first');
+
 const getMailTransport = () => {
   if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     throw new Error('Email OTP delivery is not configured');
