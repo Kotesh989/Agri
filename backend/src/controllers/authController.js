@@ -171,7 +171,10 @@ const loginWithRole = async (req, res, expectedRole) => {
         { mobileNumber: loginId },
       ],
     });
-    if (!user || (expectedRole && user.role !== expectedRole)) {
+    if (!user) {
+      return res.status(404).json({ success: false, code: 'USER_NOT_REGISTERED', message: 'User is not registered' });
+    }
+    if (expectedRole && user.role !== expectedRole) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
     if (!user.isActive) {
@@ -245,7 +248,7 @@ export const requestFarmerOtp = async (req, res) => {
 
     const existingUser = await getUserByIdentifier(identifier);
     if (!existingUser && !req.body.profile) {
-      return res.status(404).json({ success: false, message: 'Farmer account not found for this mobile number' });
+      return res.status(404).json({ success: false, code: 'USER_NOT_REGISTERED', message: 'Farmer account not found for this mobile number' });
     }
     if (existingUser && existingUser.role !== 'FARMER') {
       return res.status(403).json({ success: false, message: 'OTP login is available for farmers only' });

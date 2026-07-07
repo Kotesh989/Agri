@@ -92,7 +92,14 @@ export const LoginPage = () => {
         navigate(result.role === 'FARMER' ? '/farmer/dashboard' : '/dashboard');
       }
     } catch (error) {
-      showError(error, 'Invalid email, mobile number, password, or OTP.');
+      if (error.response?.data?.code === 'USER_NOT_REGISTERED') {
+        addNotification('This account is not registered. Redirecting to registration page...', 'error');
+        setTimeout(() => {
+          navigate(portal === 'farmer' ? '/register/farmer' : '/register/admin');
+        }, 2000);
+      } else {
+        showError(error, 'Invalid email, mobile number, password, or OTP.');
+      }
     } finally {
       setLoading(false);
     }
@@ -106,7 +113,14 @@ export const LoginPage = () => {
       setOtpCooldown(60);
       addNotification(data?.devOtp ? `OTP sent. Dev OTP: ${data.devOtp}` : t('auth.otpSent'), 'success');
     } catch (error) {
-      showError(error, t('auth.otpFailed'));
+      if (error.response?.data?.code === 'USER_NOT_REGISTERED') {
+        addNotification('This mobile number is not registered. Redirecting to registration page...', 'error');
+        setTimeout(() => {
+          navigate('/register/farmer');
+        }, 2000);
+      } else {
+        showError(error, t('auth.otpFailed'));
+      }
     } finally {
       setLoading(false);
     }
