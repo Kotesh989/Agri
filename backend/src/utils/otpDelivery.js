@@ -45,6 +45,57 @@ export const sendEmailOtp = async ({ to, otp, purpose = 'password reset' }) => {
     console.info(`Resend email delivered to ${to}, id: ${result.data?.id}`);
     return;
   }
+
+  if (process.env.EMAIL_PROVIDER === 'BREVO') {
+    if (!process.env.BREVO_API_KEY || !process.env.BREVO_FROM) throw new Error('Brevo is not configured');
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: 'Agri Shop', email: process.env.BREVO_FROM },
+        to: [{ email: to }],
+        subject: `Agri Shop ${purpose} OTP`,
+        textContent: `Your ${purpose} OTP is ${otp}. It expires in 5 minutes.`,
+        htmlContent: `<p>Your ${purpose} OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>`
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Brevo failed: ${errText}`);
+    }
+    console.info(`Brevo email delivered to ${to}`);
+    return;
+  }
+
+  if (process.env.EMAIL_PROVIDER === 'SENDGRID') {
+    if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM) throw new Error('SendGrid is not configured');
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: process.env.SENDGRID_FROM, name: 'Agri Shop' },
+        subject: `Agri Shop ${purpose} OTP`,
+        content: [
+          { type: 'text/plain', value: `Your ${purpose} OTP is ${otp}. It expires in 5 minutes.` },
+          { type: 'text/html', value: `<p>Your ${purpose} OTP is <strong>${otp}</strong>. It expires in 5 minutes.</p>` }
+        ]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`SendGrid failed: ${errText}`);
+    }
+    console.info(`SendGrid email delivered to ${to}`);
+    return;
+  }
   const transporter = getMailTransport();
   await transporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
