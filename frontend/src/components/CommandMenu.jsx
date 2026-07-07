@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   Package,
@@ -15,24 +16,33 @@ import {
   Settings,
   Search,
   CornerDownLeft,
+  Store,
 } from 'lucide-react';
 
 const destinations = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', keywords: 'home admin status stats overview' },
-  { label: 'Inventory & Products', icon: Package, path: '/products', keywords: 'stock items fertilizer seed pesticide chemical' },
-  { label: 'Customer Directory', icon: Users, path: '/customers', keywords: 'farmers buyers credit profile' },
-  { label: 'Soil Health & NPK Calculator', icon: FlaskConical, path: '/soil-health', keywords: 'soil npk nitrogen phosphorus potassium recommendation lab' },
-  { label: 'Machinery Rentals', icon: Wrench, path: '/machinery', keywords: 'tractor harvest rent tools gear' },
-  { label: 'New Sale / Billing', icon: ShoppingCart, path: '/sales', keywords: 'invoice bill checkout sell cashier' },
-  { label: 'Purchase Invoices', icon: Truck, path: '/purchases', keywords: 'wholesaler items buy stock update receive' },
-  { label: 'Supplier Profiles', icon: Truck, path: '/suppliers', keywords: 'distributor wholesaler factory company source' },
-  { label: 'Payments History', icon: CreditCard, path: '/payments', keywords: 'upi cash receipt logs balance clear' },
-  { label: 'Dues Ledger', icon: WalletCards, path: '/farmer-dues', keywords: 'credit log pending outstanding debt' },
-  { label: 'Reports & Analytics', icon: FileText, path: '/reports', keywords: 'gst profit sales margins tax audit chart' },
-  { label: 'Store Settings', icon: Settings, path: '/settings', keywords: 'profile shop address printer toggle customize' },
+  // Admin-only pages
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', keywords: 'home admin status stats overview', roles: ['ADMIN'] },
+  { label: 'Inventory & Products', icon: Package, path: '/products', keywords: 'stock items fertilizer seed pesticide chemical', roles: ['ADMIN'] },
+  { label: 'Customer Directory', icon: Users, path: '/customers', keywords: 'farmers credit profile', roles: ['ADMIN'] },
+  { label: 'Soil Health & NPK Calculator', icon: FlaskConical, path: '/soil-health', keywords: 'soil npk nitrogen phosphorus potassium recommendation lab', roles: ['ADMIN'] },
+  { label: 'New Sale / Billing', icon: ShoppingCart, path: '/sales', keywords: 'invoice bill checkout sell cashier', roles: ['ADMIN'] },
+  { label: 'Purchase Invoices', icon: Truck, path: '/purchases', keywords: 'wholesaler items buy stock update receive', roles: ['ADMIN'] },
+  { label: 'Supplier Profiles', icon: Truck, path: '/suppliers', keywords: 'distributor wholesaler factory company source', roles: ['ADMIN'] },
+  { label: 'Payments History', icon: CreditCard, path: '/payments', keywords: 'upi cash receipt logs balance clear', roles: ['ADMIN'] },
+  { label: 'Dues Ledger', icon: WalletCards, path: '/farmer-dues', keywords: 'credit log pending outstanding debt', roles: ['ADMIN'] },
+  { label: 'Reports & Analytics', icon: FileText, path: '/reports', keywords: 'gst profit sales margins tax audit chart', roles: ['ADMIN'] },
+  { label: 'Store Settings', icon: Settings, path: '/settings', keywords: 'profile shop address printer toggle customize', roles: ['ADMIN'] },
+
+  // Shared pages
+  { label: 'Machinery Rentals', icon: Wrench, path: '/machinery', keywords: 'tractor harvest rent tools gear', roles: ['ADMIN', 'FARMER'] },
+
+  // Farmer-only pages
+  { label: 'Farmer Dashboard', icon: LayoutDashboard, path: '/farmer/dashboard', keywords: 'home farmer summary purchase overview', roles: ['FARMER'] },
+  { label: 'Partner Shops', icon: Store, path: '/farmer/stores', keywords: 'catalog shopping store product order merchant', roles: ['FARMER'] },
 ];
 
 export const CommandMenu = () => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -71,10 +81,12 @@ export const CommandMenu = () => {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  const filtered = destinations.filter((item) =>
-    item.label.toLowerCase().includes(query.toLowerCase()) ||
-    item.keywords.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = destinations
+    .filter((item) => item.roles.includes(user?.role))
+    .filter((item) =>
+      item.label.toLowerCase().includes(query.toLowerCase()) ||
+      item.keywords.toLowerCase().includes(query.toLowerCase())
+    );
 
   useEffect(() => {
     setSelectedIndex(0);
