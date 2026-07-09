@@ -105,39 +105,13 @@ export const LoginPage = () => {
     }
   };
 
-  const handleRequestOtp = async () => {
-    setLoading(true);
-    try {
-      const data = await requestFarmerOtp(email, 'PHONE');
-      setOtpRequested(true);
-      setOtpCooldown(60);
-      addNotification(data?.devOtp ? `OTP sent. Dev OTP: ${data.devOtp}` : t('auth.otpSent'), 'success');
-    } catch (error) {
-      if (error.response?.data?.code === 'USER_NOT_REGISTERED') {
-        addNotification('This mobile number is not registered. Redirecting to registration page...', 'error');
-        setTimeout(() => {
-          navigate('/register/farmer');
-        }, 500);
-      } else {
-        showError(error, t('auth.otpFailed'));
-      }
-    } finally {
-      setLoading(false);
-    }
+  const handleRequestOtp = () => {
+    addNotification('Phone OTP login is not implemented yet. Please log in using username, email, or mobile number and password.', 'error');
   };
 
-  const handleVerifyOtp = async (event) => {
+  const handleVerifyOtp = (event) => {
     event.preventDefault();
-    setLoading(true);
-    try {
-      const user = await verifyFarmerOtp(email, otp);
-      addNotification(t('auth.loginSuccessful'), 'success');
-      navigate(user.role === 'FARMER' ? '/farmer/dashboard' : '/dashboard');
-    } catch (error) {
-      showError(error, t('auth.otpInvalid'));
-    } finally {
-      setLoading(false);
-    }
+    addNotification('Phone OTP login is not implemented yet. Please log in using username, email, or mobile number and password.', 'error');
   };
 
   return (
@@ -180,7 +154,7 @@ export const LoginPage = () => {
 
         {portal === 'farmer' && (
           <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-            Farmers can log in with email and password. Phone OTP is available if your mobile number is registered.
+            💡 <strong>Notice:</strong> Farmers can log in with username, email and password. Phone OTP is available if your mobile number is registered.
           </div>
         )}
 

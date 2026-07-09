@@ -112,11 +112,13 @@ export const RegisterPage = () => {
     setLoading(true);
     try {
       const { confirmPassword, ...payload } = formData;
+      if (!payload.email) delete payload.email;
+      if (!payload.username) delete payload.username;
       await api.post(`/auth/register/${isFarmer ? 'farmer' : 'admin'}`, payload);
       addNotification(`${isFarmer ? 'Farmer' : 'Admin'} account created successfully`, 'success');
       const params = new URLSearchParams({
         portal: isFarmer ? 'farmer' : 'admin',
-        identifier: (formData.email || formData.mobileNumber || '').trim(),
+        identifier: (formData.username || formData.email || formData.mobileNumber || '').trim(),
       });
       navigate(`/login?${params.toString()}`, { replace: true });
     } catch (error) {
@@ -206,7 +208,7 @@ export const RegisterPage = () => {
                   className={`input ${field === 'password' || field === 'confirmPassword' ? 'pr-12' : ''}`}
                   placeholder={fieldPlaceholders[field]?.startsWith('auth.') ? t(fieldPlaceholders[field]) : fieldPlaceholders[field] || ''}
                   minLength={field === 'password' || field === 'confirmPassword' ? 8 : undefined}
-                  required={!['address', 'profilePhoto', 'email', 'username'].includes(field)}
+                  required={!['address', 'profilePhoto', 'email', 'preferredLanguage'].includes(field)}
                   readOnly={['taluk', 'district', 'state', 'pinCode'].includes(field) && isFarmer}
                 />
                 )}
