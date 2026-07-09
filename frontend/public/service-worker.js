@@ -38,7 +38,7 @@ self.addEventListener('fetch', (event) => {
   // Handle HTML navigation requests by serving index.html (Network-first SPA fallback)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch('/index.html')
         .then((response) => {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -96,16 +96,20 @@ self.addEventListener('fetch', (event) => {
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) return cachedResponse;
 
-        return fetch(event.request).then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+        return fetch(event.request)
+          .then((response) => {
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
             return response;
-          }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+          })
+          .catch(() => {
+            return caches.match(event.request);
           });
-          return response;
-        });
       })
     );
   }
