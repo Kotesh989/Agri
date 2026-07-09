@@ -121,10 +121,42 @@ export const registerAdmin = async (req, res) => {
 
 export const registerFarmer = async (req, res) => {
   try {
-    const { name, username, email, mobileNumber, password, address, village, taluk, district, state, preferredLanguage, profilePhoto, adminId, adminEmail } = req.body;
-    if (!name || !mobileNumber || !password) {
-      return res.status(400).json({ success: false, message: 'Name, phone number, and password are required' });
+    const { name, username, email, mobileNumber, password, confirmPassword, address, village, taluk, district, state, pinCode, preferredLanguage, profilePhoto, adminId, adminEmail } = req.body;
+
+    if (!name || !String(name).trim()) return res.status(400).json({ success: false, message: 'Full Name is required' });
+    if (!username || !String(username).trim()) return res.status(400).json({ success: false, message: 'Username is required' });
+    if (!mobileNumber || !String(mobileNumber).trim()) return res.status(400).json({ success: false, message: 'Mobile Number is required' });
+    if (!password) return res.status(400).json({ success: false, message: 'Password is required' });
+    if (password.length < 8) return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    if (password !== confirmPassword) return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    if (!state || !String(state).trim()) return res.status(400).json({ success: false, message: 'State is required' });
+    if (!district || !String(district).trim()) return res.status(400).json({ success: false, message: 'District is required' });
+    if (!taluk || !String(taluk).trim()) return res.status(400).json({ success: false, message: 'Taluk is required' });
+    if (!village || !String(village).trim()) return res.status(400).json({ success: false, message: 'Village is required' });
+    if (!pinCode || !String(pinCode).trim()) return res.status(400).json({ success: false, message: 'Pincode is required' });
+
+    // Validate username rules:
+    const usernameRegex = /^[a-zA-Z0-9_.]+$/;
+    if (username.length < 4 || username.length > 30 || !usernameRegex.test(username)) {
+      return res.status(400).json({ success: false, message: 'Username must be 4-30 characters and only contain letters, numbers, underscores, or dots.' });
     }
+
+    const normalizedMobileNumber = String(mobileNumber).trim();
+    const normalizedUsername = String(username).trim().toLowerCase();
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
+
+    // Check unique username
+    const existingUserByUsername = await User.findOne({ username: normalizedUsername });
+    if (existingUserByUsername) {
+      return res.status(400).json({ success: false, message: 'Username is already taken' });
+    }
+
+    // Check unique mobileNumber
+    const existingUserByMobile = await User.findOne({ mobileNumber: normalizedMobileNumber });
+    if (existingUserByMobile) {
+      return res.status(400).json({ success: false, message: 'Mobile Number is already registered' });
+    }
+
     const admin = await User.findOne({
       role: 'ADMIN',
       isActive: true,
@@ -134,9 +166,9 @@ export const registerFarmer = async (req, res) => {
       return res.status(400).json({ success: false, message: 'A valid store admin email is required for farmer registration' });
     }
     const user = await createUser({
-      username,
-      email,
-      mobileNumber,
+      username: normalizedUsername,
+      email: normalizedEmail,
+      mobileNumber: normalizedMobileNumber,
       password,
       name,
       role: 'FARMER',
@@ -147,6 +179,7 @@ export const registerFarmer = async (req, res) => {
       taluk,
       district,
       state,
+      pinCode,
       preferredLanguage,
       profilePhoto,
       isActive: false, // set false for admin approval flow
@@ -182,6 +215,15 @@ const loginWithRole = async (req, res, expectedRole) => {
     }
     if (expectedRole && user.role !== expectedRole) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    if (!user.password) {
+      return res.json({
+        success: true,
+        passwordSetupRequired: true,
+        userId: user._id,
+        username: user.username,
+        message: 'Account found. Please create your password to activate your login.'
+      });
     }
     if (!user.isActive) {
       return res.status(403).json({ success: false, message: 'Your account registration is pending admin verification. Please contact the shop owner.' });
@@ -604,6 +646,52 @@ export const toggleUserStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Toggle user status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const checkUsername = async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) return res.json({ available: false, message: 'Username is required' });
+
+    const regex = /^[a-zA-Z0-9_.]+$/;
+    if (username.length < 4 || username.length > 30 || !regex.test(username)) {
+      return res.json({ available: false, message: 'Username must be 4-30 characters and only contain letters, numbers, underscores, or dots.' });
+    }
+
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    return res.json({ available: !existingUser });
+  } catch (error) {
+    console.error('Check username error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const setupPassword = async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    if (!userId || !password) {
+      return res.status(400).json({ success: false, message: 'User ID and password are required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (user.password) {
+      return res.status(400).json({ success: false, message: 'Password has already been set up' });
+    }
+
+    user.password = await hashPassword(password);
+    user.isActive = true; // Activate user on setup
+    await user.save();
+
+    res.json({ success: true, message: 'Password set up successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Setup password error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

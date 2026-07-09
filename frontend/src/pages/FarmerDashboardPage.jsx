@@ -105,9 +105,18 @@ export const FarmerDashboardPage = () => {
               {shops.slice(0, 3).map((shop) => (
                 <article key={shop.storeId} className="card bg-gradient-to-br from-white to-emerald-50/70 dark:from-[#151d19] dark:to-emerald-950/20">
                   <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-lg font-bold">{displayStoreName(shop)}</h3>
                       <p className="text-sm text-slate-500">{shop.ownerName || shop.phone || '-'}</p>
+                      {shop.isNear && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="badge badge-green text-[9px] px-1 py-0.5 font-bold uppercase tracking-wider">Near You</span>
+                          {shop.matchType === 'village' && <span className="badge badge-blue text-[9px] px-1 py-0.5 font-bold uppercase tracking-wider">Same Village</span>}
+                          {shop.matchType === 'taluk' && <span className="badge badge-blue text-[9px] px-1 py-0.5 font-bold uppercase tracking-wider">Same Taluk</span>}
+                          {shop.matchType === 'district' && <span className="badge badge-blue text-[9px] px-1 py-0.5 font-bold uppercase tracking-wider">Same District</span>}
+                          {shop.matchType === 'state' && <span className="badge badge-blue text-[9px] px-1 py-0.5 font-bold uppercase tracking-wider">Same State</span>}
+                        </div>
+                      )}
                     </div>
                     <span className="badge badge-green">{shop.totalInvoices} invoices</span>
                   </div>

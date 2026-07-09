@@ -73,6 +73,7 @@ test('same farmer phone can be added by two admins and links to one farmer user'
     return { ...payload, _id: `customer-${createdCustomers.length}`, id: `customer-${createdCustomers.length}` };
   };
   User.findOne = async (filter) => {
+    if (filter.username) return null;
     if (filter.email) return null;
     return userCreateCount === 0 ? null : farmer;
   };
@@ -84,13 +85,13 @@ test('same farmer phone can be added by two admins and links to one farmer user'
 
   try {
     const reqA = {
-      body: { name: 'Ravi', mobileNumber: '9999999999', email: 'ravi@example.com' },
+      body: { name: 'Ravi', username: 'ravi123', mobileNumber: '9999999999', email: 'ravi@example.com', state: 'Karnataka', district: 'Davangere', taluk: 'Davangere', village: 'Davangere', pinCode: '577001' },
       headers: {},
       storeId: 'store-a',
       user: { role: 'ADMIN', userId: 'admin-a' },
     };
     const reqB = {
-      body: { name: 'Ravi', mobileNumber: '9999999999', email: 'ravi@example.com' },
+      body: { name: 'Ravi', username: 'ravi123', mobileNumber: '9999999999', email: 'ravi@example.com', state: 'Karnataka', district: 'Davangere', taluk: 'Davangere', village: 'Davangere', pinCode: '577001' },
       headers: {},
       storeId: 'store-b',
       user: { role: 'ADMIN', userId: 'admin-b' },
@@ -157,7 +158,7 @@ test('customer creation links existing farmer by email instead of creating dupli
   try {
     const res = makeResponse();
     await createCustomer({
-      body: { name: 'Ravi', mobileNumber: '8888888888', email: 'Ravi@Example.com' },
+      body: { name: 'Ravi', username: 'ravi123', mobileNumber: '8888888888', email: 'Ravi@Example.com', state: 'Karnataka', district: 'Davangere', taluk: 'Davangere', village: 'Davangere', pinCode: '577001' },
       headers: {},
       storeId: 'store-a',
       user: { role: 'ADMIN', userId: 'admin-a' },

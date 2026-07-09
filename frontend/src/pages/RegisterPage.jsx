@@ -10,28 +10,6 @@ import { AuthLanguageSelect } from '../components/AuthLanguageSelect';
 
 const adminForm = { name: '', email: '', password: '', confirmPassword: '' };
 
-const VILLAGE_LOCATIONS = [
-  { village: 'Kundur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
-  { village: 'Halehal', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
-  { village: 'Nallur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
-  { village: 'Thyavanige', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577544' },
-  { village: 'Sulekere', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577215' },
-  { village: 'Santhebennur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577552' },
-  { village: 'Mayakonda', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577534' },
-  { village: 'Hadadi', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577525' },
-  { village: 'Anaji', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
-  { village: 'Lokikere', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577002' },
-  { village: 'Malebennur', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577530' },
-  { village: 'Bhanuvalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
-  { village: 'Yalodahalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
-  { village: 'Kondajji', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577589' },
-  { village: 'Jagalur Rural', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
-  { village: 'Bilichodu', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577553' },
-  { village: 'Sokke', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
-  { village: 'Gunderi', taluk: 'Holalkere', district: 'Chitradurga', state: 'Karnataka', pinCode: '577526' },
-  { village: 'Bheemasandra', taluk: 'Chitradurga', district: 'Chitradurga', state: 'Karnataka', pinCode: '577501' },
-];
-
 const farmerForm = {
   name: '',
   username: '',
@@ -70,13 +48,13 @@ const fieldLabels = {
 
 const fieldPlaceholders = {
   name: 'Enter full name',
-  username: 'Optional username',
+  username: 'Enter unique username',
   email: 'name@example.com (Optional)',
   mobileNumber: '10 digit phone number',
   adminEmail: 'auth.adminStoreEmailPlaceholder',
   password: 'At least 8 characters',
   confirmPassword: 'Repeat password',
-  address: 'Village, city, or street address',
+  address: 'Street / House details (Optional)',
   village: 'Village',
   taluk: 'Taluk',
   district: 'District',
@@ -90,13 +68,46 @@ export const RegisterPage = () => {
   const [formData, setFormData] = useState(isFarmer ? farmerForm : adminForm);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid'
   const navigate = useNavigate();
   const { addNotification } = useNotificationContext();
   const { t } = useTranslation();
 
   useEffect(() => {
     setFormData(isFarmer ? farmerForm : adminForm);
+    setUsernameStatus('');
   }, [isFarmer]);
+
+  // Debounced username availability validation
+  useEffect(() => {
+    if (!isFarmer || !formData.username) {
+      setUsernameStatus('');
+      return;
+    }
+
+    const username = formData.username.trim();
+    const usernameRegex = /^[a-zA-Z0-9_.]+$/;
+    if (username.length < 4 || username.length > 30 || !usernameRegex.test(username)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get('/auth/check-username', { params: { username } });
+        if (res.data.available) {
+          setUsernameStatus('available');
+        } else {
+          setUsernameStatus('taken');
+        }
+      } catch (err) {
+        setUsernameStatus('');
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [formData.username, isFarmer]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -106,6 +117,14 @@ export const RegisterPage = () => {
     }
     if (formData.password !== formData.confirmPassword) {
       addNotification('Passwords do not match', 'error');
+      return;
+    }
+    if (isFarmer && usernameStatus === 'taken') {
+      addNotification('Username is already taken. Please choose another one.', 'error');
+      return;
+    }
+    if (isFarmer && usernameStatus === 'invalid') {
+      addNotification('Username format is invalid.', 'error');
       return;
     }
 
@@ -159,7 +178,12 @@ export const RegisterPage = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {Object.entries(formData).map(([field, value]) => (
             <div key={field}>
-              <label className="block text-sm font-medium mb-1">{t(fieldLabels[field] || field)}</label>
+              <label className="block text-sm font-medium mb-1">
+                {t(fieldLabels[field] || field)}
+                {!['address', 'profilePhoto', 'email', 'preferredLanguage'].includes(field) && (
+                  <span className="text-rose-500 ml-0.5">*</span>
+                )}
+              </label>
               <div className="relative">
                 {field === 'preferredLanguage' ? (
                   <select value={value} onChange={(e) => setFormData({ ...formData, [field]: e.target.value })} className="input">
@@ -174,43 +198,16 @@ export const RegisterPage = () => {
                     className="input"
                     placeholder="Optional profile photo URL"
                   />
-                ) : field === 'village' && isFarmer ? (
-                  <select
-                    value={value}
-                    onChange={(e) => {
-                      const selected = VILLAGE_LOCATIONS.find(loc => loc.village === e.target.value);
-                      if (selected) {
-                        setFormData({
-                          ...formData,
-                          village: selected.village,
-                          taluk: selected.taluk,
-                          district: selected.district,
-                          state: selected.state,
-                          pinCode: selected.pinCode
-                        });
-                      } else {
-                        setFormData({ ...formData, village: e.target.value });
-                      }
-                    }}
-                    className="input"
-                    required
-                  >
-                    <option value="">Select Village</option>
-                    {VILLAGE_LOCATIONS.map((loc) => (
-                      <option key={loc.village} value={loc.village}>{loc.village}</option>
-                    ))}
-                  </select>
                 ) : (
-                <input
-                  type={field === 'password' || field === 'confirmPassword' ? (showPassword ? 'text' : 'password') : field === 'email' || field === 'adminEmail' ? 'email' : 'text'}
-                  value={value}
-                  onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-                  className={`input ${field === 'password' || field === 'confirmPassword' ? 'pr-12' : ''}`}
-                  placeholder={fieldPlaceholders[field]?.startsWith('auth.') ? t(fieldPlaceholders[field]) : fieldPlaceholders[field] || ''}
-                  minLength={field === 'password' || field === 'confirmPassword' ? 8 : undefined}
-                  required={!['address', 'profilePhoto', 'email', 'preferredLanguage'].includes(field)}
-                  readOnly={['taluk', 'district', 'state', 'pinCode'].includes(field) && isFarmer}
-                />
+                  <input
+                    type={field === 'password' || field === 'confirmPassword' ? (showPassword ? 'text' : 'password') : field === 'email' || field === 'adminEmail' ? 'email' : 'text'}
+                    value={value}
+                    onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                    className={`input ${field === 'password' || field === 'confirmPassword' ? 'pr-12' : ''}`}
+                    placeholder={fieldPlaceholders[field]?.startsWith('auth.') ? t(fieldPlaceholders[field]) : fieldPlaceholders[field] || ''}
+                    minLength={field === 'password' || field === 'confirmPassword' ? 8 : undefined}
+                    required={!['address', 'profilePhoto', 'email', 'preferredLanguage'].includes(field)}
+                  />
                 )}
                 {(field === 'password' || field === 'confirmPassword') && (
                   <button
@@ -223,6 +220,14 @@ export const RegisterPage = () => {
                   </button>
                 )}
               </div>
+              {field === 'username' && isFarmer && usernameStatus && (
+                <div className="mt-1 text-xs font-semibold">
+                  {usernameStatus === 'checking' && <span className="text-blue-500 animate-pulse">Checking...</span>}
+                  {usernameStatus === 'available' && <span className="text-emerald-500">Available ✅</span>}
+                  {usernameStatus === 'taken' && <span className="text-rose-500">Already Taken ❌</span>}
+                  {usernameStatus === 'invalid' && <span className="text-amber-500">Must be 4-30 chars (letters, numbers, underscore, or dot).</span>}
+                </div>
+              )}
             </div>
           ))}
           <div className="flex gap-2">

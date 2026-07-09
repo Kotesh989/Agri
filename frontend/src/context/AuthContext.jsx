@@ -41,6 +41,9 @@ export const AuthProvider = ({ children }) => {
     if (response.data.otpRequired) {
       return { otpRequired: true, identifier: response.data.identifier };
     }
+    if (response.data.passwordSetupRequired) {
+      return { passwordSetupRequired: true, userId: response.data.userId, username: response.data.username };
+    }
     const { token, user } = response.data.data;
     localStorage.setItem('token', token);
     localStorage.setItem('role', user.role);

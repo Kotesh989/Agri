@@ -40,10 +40,22 @@ export const LoginPage = () => {
   const [otpRequested, setOtpRequested] = useState(false);
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [showNotice, setShowNotice] = useState(false);
+  const [showOtpWarningModal, setShowOtpWarningModal] = useState(false);
   const { login, requestFarmerOtp, verifyFarmerOtp } = useAuth();
   const navigate = useNavigate();
   const { addNotification } = useNotificationContext();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (portal === 'farmer') {
+      setShowNotice(true);
+      const timer = setTimeout(() => setShowNotice(false), 6000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowNotice(false);
+    }
+  }, [portal]);
 
   useEffect(() => {
     const nextLogin = getLoginSeed(location.search);
@@ -72,6 +84,10 @@ export const LoginPage = () => {
   };
 
   const openPasswordReset = () => {
+    if (portal === 'farmer') {
+      setShowOtpWarningModal(true);
+      return;
+    }
     const params = new URLSearchParams({ portal });
     const identifier = email.trim();
     if (identifier) params.set('identifier', identifier);
@@ -87,6 +103,13 @@ export const LoginPage = () => {
         setOtpMode(true);
         setOtpRequested(true);
         addNotification('OTP confirmation sent to your email. Please verify to log in.', 'success');
+      } else if (result?.passwordSetupRequired) {
+        addNotification(result.message, 'success');
+        const setupParams = new URLSearchParams({
+          userId: result.userId,
+          username: result.username || '',
+        });
+        navigate(`/password-setup?${setupParams.toString()}`);
       } else if (result) {
         addNotification('Login successful', 'success');
         navigate(result.role === 'FARMER' ? '/farmer/dashboard' : '/dashboard');
@@ -152,9 +175,18 @@ export const LoginPage = () => {
           </button>
         </div>
 
-        {portal === 'farmer' && (
-          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-            💡 <strong>Notice:</strong> Farmers can log in with username, email and password. Phone OTP is available if your mobile number is registered.
+        {portal === 'farmer' && showNotice && (
+          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-905 dark:bg-emerald-950/40 dark:text-emerald-200 flex items-start justify-between shadow-md transition-all duration-300 animate-slide-up">
+            <div className="flex-1 pr-2">
+              💡 <strong>Notice:</strong> Farmers can log in using their Username, Mobile Number, or Email with their Password. Phone OTP login is currently under development and will be available in a future update.
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowNotice(false)}
+              className="text-emerald-800 dark:text-emerald-200 hover:text-red-500 font-bold transition-colors"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -264,14 +296,11 @@ export const LoginPage = () => {
             <button
               type="button"
               onClick={() => {
-                setOtpMode((current) => !current);
-                setOtpRequested(false);
-                setOtp('');
-                setEmail('');
+                setShowOtpWarningModal(true);
               }}
               className="btn btn-secondary w-full justify-center"
             >
-              {otpMode ? 'Use Email + Password' : 'Use Phone OTP'}
+              Use Phone OTP
             </button>
           )}
 
@@ -322,6 +351,28 @@ export const LoginPage = () => {
           </button>
         </div>
       </div>
+
+      {showOtpWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-lg border border-white/10 bg-white/95 p-6 shadow-2xl dark:bg-[#151d19]/95 text-slate-900 dark:text-white animate-scale-in">
+            <h2 className="text-xl font-bold mb-3 border-b border-slate-200 dark:border-gray-700 pb-2">Phone OTP Login</h2>
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-gray-300 mb-6">
+              Phone OTP login is currently under development.
+              <br /><br />
+              Please log in using your Username, Mobile Number, or Email with your password. OTP-based login will be available in a future update.
+            </p>
+            <div className="flex justify-end">
+              <button 
+                type="button" 
+                onClick={() => setShowOtpWarningModal(false)} 
+                className="btn btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

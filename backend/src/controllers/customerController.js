@@ -153,31 +153,23 @@ const getCreditSnapshot = (customer) => {
   };
 };
 
-const validateCustomerInput = ({ name, mobileNumber, email, gstNumber, creditLimit }) => {
+const validateCustomerInput = (body) => {
+  const { name, mobileNumber, email, gstNumber, creditLimit, state, district, taluk, village, pinCode } = body;
   if (!String(name || '').trim()) return 'Name is required';
   if (!isTenDigitPhone(mobileNumber)) return 'Phone number must be 10 digits';
   if (!isValidEmail(email)) return 'Email must be valid';
   if (!isValidGstNumber(gstNumber)) return 'GST number must match Indian GST format';
   if (creditLimit !== undefined && (!Number.isFinite(Number(creditLimit)) || Number(creditLimit) < 0)) return 'Credit limit must be zero or greater';
+  if (!String(state || '').trim()) return 'State is required';
+  if (!String(district || '').trim()) return 'District is required';
+  if (!String(taluk || '').trim()) return 'Taluk is required';
+  if (!String(village || '').trim()) return 'Village is required';
+  if (!String(pinCode || '').trim()) return 'Pincode is required';
   return null;
 };
 
 const ensureCustomerFarmerUser = async (customer) => {
-  if (customer.farmerUserId) return customer.farmerUserId;
-  let farmer = await User.findOne({ role: 'FARMER', mobileNumber: customer.mobileNumber });
-  if (!farmer) {
-    farmer = await User.create({
-      email: customer.email || undefined,
-      mobileNumber: customer.mobileNumber,
-      password: await hashPassword(crypto.randomBytes(24).toString('hex')),
-      name: customer.name,
-      role: 'FARMER',
-      isPhoneVerified: false,
-    });
-  }
-  customer.farmerUserId = farmer._id;
-  await customer.save();
-  return farmer._id;
+  return customer.farmerUserId || null;
 };
 
 const buildStoreSnapshot = async (req) => {
@@ -196,7 +188,7 @@ const buildStoreSnapshot = async (req) => {
 
 export const createCustomer = async (req, res) => {
   try {
-    const { name, username, mobileNumber, email, address, city, village, taluk, district, state, pinCode, aadhaarNumber, creditLimit, password } = req.body;
+    const { name, username, mobileNumber, email, address, city, village, taluk, district, state, pinCode, aadhaarNumber, creditLimit } = req.body;
 
     const inputError = validateCustomerInput(req.body);
     if (inputError) {
@@ -218,42 +210,46 @@ export const createCustomer = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This email is already used by an admin account. Use the farmer email or leave email blank.' });
     }
 
+    let farmerUserId = null;
+    let linkedExistingFarmer = false;
+
     if (normalizedUsername) {
       const existingUserByUsername = await User.findOne({ username: normalizedUsername });
       if (existingUserByUsername) {
         return res.status(400).json({ success: false, message: 'This username is already taken by another account' });
       }
-    }
 
-    let farmer = await User.findOne({
-      role: 'FARMER',
-      $or: [
-        { mobileNumber: normalizedMobileNumber },
-        ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
-        ...(normalizedUsername ? [{ username: normalizedUsername }] : []),
-      ],
-    });
-    const linkedExistingFarmer = Boolean(farmer);
-    if (!farmer) {
-      farmer = await User.create({
-        username: normalizedUsername,
-        email: normalizedEmail,
-        mobileNumber: normalizedMobileNumber,
-        password: password ? await hashPassword(password) : await hashPassword(crypto.randomBytes(24).toString('hex')),
-        name,
+      let farmer = await User.findOne({
         role: 'FARMER',
-        isPhoneVerified: false,
+        $or: [
+          { mobileNumber: normalizedMobileNumber },
+          ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+          { username: normalizedUsername },
+        ],
       });
-    } else {
-      if (!farmer.username && normalizedUsername) farmer.username = normalizedUsername;
-      if (!farmer.email && normalizedEmail) farmer.email = normalizedEmail;
-      if (!farmer.mobileNumber && normalizedMobileNumber) farmer.mobileNumber = normalizedMobileNumber;
-      if (password) farmer.password = await hashPassword(password);
-      await farmer.save();
+
+      if (!farmer) {
+        farmer = await User.create({
+          username: normalizedUsername,
+          email: normalizedEmail,
+          mobileNumber: normalizedMobileNumber,
+          password: undefined, // Pending Password Setup
+          name,
+          role: 'FARMER',
+          isPhoneVerified: false,
+          isActive: false, // Inactive pending password setup
+        });
+      } else {
+        linkedExistingFarmer = true;
+        if (!farmer.username) farmer.username = normalizedUsername;
+        if (normalizedEmail) farmer.email = normalizedEmail;
+        await farmer.save();
+      }
+      farmerUserId = farmer._id;
     }
 
     const customer = await Customer.create({
-      farmerUserId: farmer._id,
+      farmerUserId,
       adminId,
       storeId,
       name,
@@ -271,11 +267,14 @@ export const createCustomer = async (req, res) => {
       gstNumber: req.body.gstNumber,
       creditLimit: Number(creditLimit || 0),
     });
-    await FarmerStoreLink.findOneAndUpdate(
-      { farmerId: farmer._id, storeId },
-      { customerId: customer._id, lastVisitDate: new Date() },
-      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
-    );
+
+    if (farmerUserId) {
+      await FarmerStoreLink.findOneAndUpdate(
+        { farmerId: farmerUserId, storeId },
+        { customerId: customer._id, lastVisitDate: new Date() },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -670,18 +669,35 @@ export const updateCustomer = async (req, res) => {
 
     Object.entries(req.body).forEach(([key, value]) => {
       if (key === 'password') return;
-      if (value === undefined || value === '') return;
       customer[key] = key === 'creditLimit' ? Number(value) : value;
     });
     await customer.save();
 
-    if (customer.farmerUserId && (req.body.email !== undefined || req.body.mobileNumber !== undefined || req.body.username !== undefined || req.body.password)) {
+    if (!customer.farmerUserId && req.body.username) {
+      const normalizedUsername = String(req.body.username).trim().toLowerCase();
+      const existingUserByUsername = await User.findOne({ username: normalizedUsername });
+      if (existingUserByUsername) {
+        return res.status(400).json({ success: false, message: 'This username is already taken by another account' });
+      }
+
+      const farmer = await User.create({
+        username: normalizedUsername,
+        email: customer.email ? String(customer.email).trim().toLowerCase() : undefined,
+        mobileNumber: String(customer.mobileNumber).trim(),
+        password: undefined, // Pending Password Setup
+        name: customer.name,
+        role: 'FARMER',
+        isPhoneVerified: false,
+        isActive: false, // Inactive pending password setup
+      });
+      customer.farmerUserId = farmer._id;
+      await customer.save();
+    } else if (customer.farmerUserId) {
       const farmer = await User.findOne({ _id: customer.farmerUserId, role: 'FARMER' });
       if (farmer) {
         if (req.body.username !== undefined) farmer.username = req.body.username ? String(req.body.username).trim().toLowerCase() : undefined;
         if (req.body.email !== undefined) farmer.email = req.body.email ? String(req.body.email).trim().toLowerCase() : undefined;
         if (req.body.mobileNumber !== undefined) farmer.mobileNumber = req.body.mobileNumber ? String(req.body.mobileNumber).trim() : undefined;
-        if (req.body.password) farmer.password = await hashPassword(req.body.password);
         await farmer.save();
       }
     }

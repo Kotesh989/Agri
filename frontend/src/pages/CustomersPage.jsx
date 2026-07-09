@@ -19,27 +19,7 @@ const customerTabs = [
   { id: 'HISTORY', labelKey: 'customers.purchaseHistory' },
 ];
 
-const VILLAGE_LOCATIONS = [
-  { village: 'Kundur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
-  { village: 'Halehal', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
-  { village: 'Nallur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
-  { village: 'Thyavanige', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577544' },
-  { village: 'Sulekere', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577215' },
-  { village: 'Santhebennur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577552' },
-  { village: 'Mayakonda', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577534' },
-  { village: 'Hadadi', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577525' },
-  { village: 'Anaji', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
-  { village: 'Lokikere', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577002' },
-  { village: 'Malebennur', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577530' },
-  { village: 'Bhanuvalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
-  { village: 'Yalodahalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
-  { village: 'Kondajji', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577589' },
-  { village: 'Jagalur Rural', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
-  { village: 'Bilichodu', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577553' },
-  { village: 'Sokke', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
-  { village: 'Gunderi', taluk: 'Holalkere', district: 'Chitradurga', state: 'Karnataka', pinCode: '577526' },
-  { village: 'Bheemasandra', taluk: 'Chitradurga', district: 'Chitradurga', state: 'Karnataka', pinCode: '577501' },
-];
+const VILLAGE_LOCATIONS = [];
 
 const emptyCustomerForm = {
   name: '',
@@ -612,6 +592,18 @@ export const CustomersPage = () => {
                                 <div><p className="text-xs text-slate-500">Full Name</p><p className="font-semibold">{selectedCustomer.name}</p></div>
                                 <div><p className="text-xs text-slate-500">Mobile Number</p><p className="font-semibold">{selectedCustomer.mobileNumber}</p></div>
                                 <div><p className="text-xs text-slate-500">Username</p><p className="font-semibold">{selectedCustomer.username || '-'}</p></div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Account Status</p>
+                                  <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                    {(() => {
+                                      const fUser = selectedCustomer.farmerUserId;
+                                      if (!selectedCustomer.username) return 'No Login Account';
+                                      if (!fUser) return 'Pending Password Setup';
+                                      if (!fUser.password) return 'Pending Password Setup';
+                                      return fUser.isActive ? 'Active ✅' : 'Pending Verification ⏳';
+                                    })()}
+                                  </p>
+                                </div>
                                 <div><p className="text-xs text-slate-500">Email</p><p className="font-semibold">{selectedCustomer.email || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Address</p><p className="font-semibold">{selectedCustomer.address || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Village</p><p className="font-semibold">{selectedCustomer.village || '-'}</p></div>
@@ -802,55 +794,33 @@ export const CustomersPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Village *</label>
-                <select
+                <input
+                  type="text"
                   value={customerForm.village}
-                  onChange={(e) => {
-                    const selected = VILLAGE_LOCATIONS.find(loc => loc.village === e.target.value);
-                    if (selected) {
-                      setCustomerForm({
-                        ...customerForm,
-                        village: selected.village,
-                        taluk: selected.taluk,
-                        district: selected.district,
-                        state: selected.state,
-                        pinCode: selected.pinCode
-                      });
-                    } else {
-                      setCustomerForm({ ...customerForm, village: e.target.value });
-                    }
-                  }}
+                  onChange={(e) => setCustomerForm({ ...customerForm, village: e.target.value })}
                   className="input"
                   required
-                >
-                  <option value="">Select Village</option>
-                  {VILLAGE_LOCATIONS.map((loc) => (
-                    <option key={loc.village} value={loc.village}>
-                      {loc.village}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Taluk / Tehsil</label>
+                  <label className="block text-sm font-medium mb-1">Taluk / Tehsil *</label>
                   <input
                     type="text"
                     value={customerForm.taluk}
                     onChange={(e) => setCustomerForm({ ...customerForm, taluk: e.target.value })}
-                    className="input bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
-                    readOnly
-                    placeholder="Auto-filled"
+                    className="input"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">District</label>
+                  <label className="block text-sm font-medium mb-1">District *</label>
                   <input
                     type="text"
                     value={customerForm.district}
                     onChange={(e) => setCustomerForm({ ...customerForm, district: e.target.value })}
-                    className="input bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
-                    readOnly
-                    placeholder="Auto-filled"
+                    className="input"
+                    required
                   />
                 </div>
               </div>
@@ -874,21 +844,23 @@ export const CustomersPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">State</label>
+                  <label className="block text-sm font-medium mb-1">State *</label>
                   <input
                     type="text"
                     value={customerForm.state}
                     onChange={(e) => setCustomerForm({ ...customerForm, state: e.target.value })}
                     className="input"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">PIN Code</label>
+                  <label className="block text-sm font-medium mb-1">PIN Code *</label>
                   <input
                     type="text"
                     value={customerForm.pinCode}
                     onChange={(e) => setCustomerForm({ ...customerForm, pinCode: e.target.value })}
                     className="input"
+                    required
                   />
                 </div>
               </div>

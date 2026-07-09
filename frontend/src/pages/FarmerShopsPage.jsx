@@ -50,9 +50,18 @@ export const FarmerShopsPage = () => {
                   <div className="rounded-lg bg-emerald-600 p-3 text-white">
                     <Building2 className="h-6 w-6" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h2 className="text-xl font-bold">{displayStoreName(shop)}</h2>
                     <p className="text-sm text-slate-600">{shop.ownerName || 'Owner'}</p>
+                    {shop.isNear && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <span className="badge badge-green text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider">Near You</span>
+                        {shop.matchType === 'village' && <span className="badge badge-blue text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider">Same Village</span>}
+                        {shop.matchType === 'taluk' && <span className="badge badge-blue text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider">Same Taluk</span>}
+                        {shop.matchType === 'district' && <span className="badge badge-blue text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider">Same District</span>}
+                        {shop.matchType === 'state' && <span className="badge badge-blue text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider">Same State</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
 

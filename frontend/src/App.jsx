@@ -31,6 +31,7 @@ import { FarmerPurchaseHistoryPage } from './pages/FarmerPurchaseHistoryPage';
 import { FarmerInvoiceView } from './pages/FarmerInvoiceView';
 import { RegisterPage } from './pages/RegisterPage';
 import { PasswordResetPage } from './pages/PasswordResetPage';
+import { PasswordSetupPage } from './pages/PasswordSetupPage';
 
 import './index.css';
 
@@ -46,6 +47,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register/:type" element={<RegisterPage />} />
               <Route path="/password-reset" element={<PasswordResetPage />} />
+              <Route path="/password-setup" element={<PasswordSetupPage />} />
               <Route
                 path="/dashboard"
                 element={

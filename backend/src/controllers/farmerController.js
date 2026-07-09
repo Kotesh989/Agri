@@ -269,12 +269,24 @@ export const listShops = async (req, res) => {
     allStores.forEach((store) => {
       const storeId = store._id.toString();
       const admin = store.ownerAdminId;
-      const isNear = farmerUser
-        ? (store.village && farmerUser.village && store.village.toLowerCase() === farmerUser.village.toLowerCase()) ||
-          (store.taluk && farmerUser.taluk && store.taluk.toLowerCase() === farmerUser.taluk.toLowerCase()) ||
-          (store.district && farmerUser.district && store.district.toLowerCase() === farmerUser.district.toLowerCase()) ||
-          (store.state && farmerUser.state && store.state.toLowerCase() === farmerUser.state.toLowerCase())
-        : false;
+      let proximityScore = 0;
+      let matchType = null;
+
+      if (farmerUser) {
+        if (store.village && farmerUser.village && store.village.toLowerCase() === farmerUser.village.toLowerCase()) {
+          proximityScore = 5;
+          matchType = 'village';
+        } else if (store.taluk && farmerUser.taluk && store.taluk.toLowerCase() === farmerUser.taluk.toLowerCase()) {
+          proximityScore = 4;
+          matchType = 'taluk';
+        } else if (store.district && farmerUser.district && store.district.toLowerCase() === farmerUser.district.toLowerCase()) {
+          proximityScore = 3;
+          matchType = 'district';
+        } else if (store.state && farmerUser.state && store.state.toLowerCase() === farmerUser.state.toLowerCase()) {
+          proximityScore = 2;
+          matchType = 'state';
+        }
+      }
 
       shops.set(storeId, {
         id: storeId,
@@ -295,7 +307,9 @@ export const listShops = async (req, res) => {
         totalBalance: 0,
         pendingBalance: 0,
         lastPurchaseDate: null,
-        isNear: Boolean(isNear),
+        isNear: proximityScore > 0,
+        proximityScore,
+        matchType,
         hasPurchases: false,
       });
     });
@@ -387,8 +401,11 @@ export const listShops = async (req, res) => {
     });
 
     const shopList = Array.from(shops.values()).sort((a, b) => {
-      if (a.isNear && !b.isNear) return -1;
-      if (!a.isNear && b.isNear) return 1;
+      const scoreA = a.proximityScore || 0;
+      const scoreB = b.proximityScore || 0;
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
       return b.totalPurchaseAmount - a.totalPurchaseAmount || a.name.localeCompare(b.name);
     });
 

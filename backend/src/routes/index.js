@@ -36,6 +36,8 @@ router.post('/auth/farmer/otp/verify', authController.verifyFarmerOtp);
 router.post('/auth/logout', authController.logout);
 router.post('/auth/password-reset/request', authController.requestPasswordResetOtp);
 router.post('/auth/password-reset/confirm', authController.resetPasswordWithOtp);
+router.get('/auth/check-username', authController.checkUsername);
+router.post('/auth/setup-password', authController.setupPassword);
 router.get('/auth/profile', authenticate, authController.getProfile);
 router.get('/auth/users', authenticate, authorize('ADMIN'), authController.listUsers);
 router.patch('/auth/users/:userId/toggle', authenticate, authorize('ADMIN'), authController.toggleUserStatus);
