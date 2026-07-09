@@ -103,8 +103,18 @@ export const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/50 bg-[#FFFFFF]/85 backdrop-blur-md dark:border-white/5 dark:bg-[#090D0B]/85 h-16 transition-colors duration-300">
       <div className="flex w-full items-center justify-between px-6 h-full">
         {/* Left Side: Logo & Dynamic Breadcrumbs */}
-        <div className="flex items-center space-x-6">
-          <div onClick={() => navigate('/dashboard')} className="flex items-center space-x-2.5 cursor-pointer group">
+        <div className="flex items-center space-x-2 md:space-x-6">
+          {/* Mobile Sidebar Hamburger Trigger */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-mobile-sidebar'))}
+            className="lg:hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors duration-250 active:scale-95"
+            aria-label="Open menu"
+            title="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div onClick={() => navigate(user?.role === 'FARMER' ? '/farmer/dashboard' : '/dashboard')} className="flex items-center space-x-2.5 cursor-pointer group">
             <div className="rounded-lg bg-emerald-500 p-2 text-white shadow-md transition-all duration-300 group-hover:bg-emerald-600 active:scale-95">
               <BarChart3 className="w-5 h-5" strokeWidth={2} />
             </div>

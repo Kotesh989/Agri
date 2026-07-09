@@ -64,121 +64,213 @@ export const Sidebar = () => {
     window.dispatchEvent(new CustomEvent('open-command-menu'));
   };
 
-  const activeMenuItems = user?.role === 'FARMER' ? farmerMenuItems : menuItems;
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsMobileOpen((prev) => !prev);
+    window.addEventListener('toggle-mobile-sidebar', handleToggle);
+    return () => window.removeEventListener('toggle-mobile-sidebar', handleToggle);
+  }, []);
+
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
 
   return (
-    <motion.aside
-      layout
-      className="sticky hidden shrink-0 lg:flex flex-col bg-[#FFFFFF] dark:bg-[#0F1512] border-r border-slate-200/60 dark:border-white/5"
-      style={{
-        width: collapsed ? '80px' : '260px',
-        height: 'calc(100vh - 64px)',
-        top: '64px',
-      }}
-      transition={{ type: 'spring', stiffness: 350, damping: 35 }}
-    >
-      {/* Sidebar Header / Collapse Action */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200/40 dark:border-white/5">
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.span
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider"
-            >
-              Navigation
-            </motion.span>
-          )}
-        </AnimatePresence>
-        <button
-          type="button"
-          onClick={() => setCollapsed((current) => !current)}
-          className="rounded-lg border border-slate-200/40 p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
-        >
-          <ChevronLeft className={`h-4 w-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-
-      {/* Sidebar Search Trigger */}
-      {user?.role !== 'FARMER' && (
-        <div className="px-4 py-3">
-          <button
-            onClick={openSearch}
-            className={`flex items-center gap-3 w-full rounded-xl border border-slate-200/60 bg-slate-50 px-3 py-2 text-left text-xs text-slate-400 transition hover:bg-slate-100 dark:border-white/5 dark:bg-[#151D19]/40 dark:hover:bg-[#151D19]/80 ${
-              collapsed ? 'justify-center' : ''
-            }`}
-            title="Search dashboard (Ctrl+K)"
-          >
-            <Search className="h-4 w-4 shrink-0" />
+    <>
+      {/* Desktop Sidebar (visible on lg screens) */}
+      <motion.aside
+        layout
+        className="sticky hidden shrink-0 lg:flex flex-col bg-[#FFFFFF] dark:bg-[#0F1512] border-r border-slate-200/60 dark:border-white/5"
+        style={{
+          width: collapsed ? '80px' : '260px',
+          height: 'calc(100vh - 64px)',
+          top: '64px',
+        }}
+        transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+      >
+        {/* Sidebar Header / Collapse Action */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-200/40 dark:border-white/5">
+          <AnimatePresence>
             {!collapsed && (
-              <span className="flex-1 flex justify-between items-center">
-                <span>{t('common.search')}...</span>
-                <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                  ⌘K
-                </kbd>
-              </span>
+              <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider"
+              >
+                Navigation
+              </motion.span>
             )}
+          </AnimatePresence>
+          <button
+            type="button"
+            onClick={() => setCollapsed((current) => !current)}
+            className="rounded-lg border border-slate-200/40 p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+          >
+            <ChevronLeft className={`h-4 w-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
           </button>
         </div>
-      )}
 
-      {/* Navigation Links */}
-      <div className="flex-1 space-y-1 px-3 overflow-y-auto py-2">
-        {activeMenuItems
-          .filter((item) => !item.adminOnly || user?.role === 'ADMIN')
-          .map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+        {/* Sidebar Search Trigger */}
+        {user?.role !== 'FARMER' && (
+          <div className="px-4 py-3">
+            <button
+              onClick={openSearch}
+              className={`flex items-center gap-3 w-full rounded-xl border border-slate-200/60 bg-slate-50 px-3 py-2 text-left text-xs text-slate-400 transition hover:bg-slate-100 dark:border-white/5 dark:bg-[#151D19]/40 dark:hover:bg-[#151D19]/80 ${
+                collapsed ? 'justify-center' : ''
+              }`}
+              title="Search dashboard (Ctrl+K)"
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              {!collapsed && (
+                <span className="flex-1 flex justify-between items-center">
+                  <span>{t('common.search')}...</span>
+                  <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    ⌘K
+                  </kbd>
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
-            return (
-              <Link
-                key={item.labelKey}
-                to={item.path}
-                className={`group relative flex items-center rounded-xl py-3 transition-colors duration-200 ${
-                  isActive
-                    ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#151D19]/40'
-                } ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}
-                title={collapsed ? t(item.labelKey) : undefined}
-              >
-                {/* Active Indicator Spring animation */}
-                {isActive && (
-                  <motion.div
-                    layoutId="active-sidebar-bg"
-                    className="absolute inset-0 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 dark:border-emerald-500/20 rounded-xl"
-                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                  />
-                )}
+        {/* Navigation Links */}
+        <div className="flex-1 space-y-1 px-3 overflow-y-auto py-2">
+          {activeMenuItems
+            .filter((item) => !item.adminOnly || user?.role === 'ADMIN')
+            .map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
 
-                <div className="flex items-center gap-3 relative z-10">
-                  <motion.span
-                    whileHover={{ scale: 1.15 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-                    className="shrink-0"
-                  >
-                    <Icon className="h-5 w-5" />
-                  </motion.span>
-                  {!collapsed && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-sm font-medium"
-                    >
-                      {t(item.labelKey)}
-                    </motion.span>
+              return (
+                <Link
+                  key={item.labelKey}
+                  to={item.path}
+                  className={`group relative flex items-center rounded-xl py-3 transition-colors duration-200 ${
+                    isActive
+                      ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#151D19]/40'
+                  } ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}
+                  title={collapsed ? t(item.labelKey) : undefined}
+                >
+                  {/* Active Indicator Spring animation */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-sidebar-bg"
+                      className="absolute inset-0 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 dark:border-emerald-500/20 rounded-xl"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
                   )}
-                </div>
 
-                {isActive && !collapsed && (
-                  <ChevronRight className="w-4 h-4 relative z-10 transition-transform duration-300 group-hover:translate-x-0.5" />
-                )}
-              </Link>
-            );
-          })}
-      </div>
-    </motion.aside>
+                  <div className="flex items-center gap-3 relative z-10">
+                    <motion.span
+                      whileHover={{ scale: 1.15 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+                      className="shrink-0"
+                    >
+                      <Icon className="h-5 w-5" />
+                    </motion.span>
+                    {!collapsed && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-sm font-medium"
+                      >
+                        {t(item.labelKey)}
+                      </motion.span>
+                    )}
+                  </div>
+
+                  {isActive && !collapsed && (
+                    <ChevronRight className="w-4 h-4 relative z-10 transition-transform duration-300 group-hover:translate-x-0.5" />
+                  )}
+                </Link>
+              );
+            })}
+        </div>
+      </motion.aside>
+
+      {/* Mobile Sidebar Overlay Drawer (visible on screens < lg) */}
+      <AnimatePresence>
+        {isMobileOpen && (
+          <div className="fixed inset-0 z-50 flex lg:hidden">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileOpen(false)}
+              className="fixed inset-0 bg-[#090D0B]/40 dark:bg-black/60 backdrop-blur-sm"
+            />
+
+            {/* Slide-out Panel */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="relative flex w-[280px] max-w-[80vw] flex-col bg-[#FFFFFF] dark:bg-[#0F1512] border-r border-slate-200/60 dark:border-white/5 h-full p-4 shadow-2xl text-left"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200/40 dark:border-white/5 mb-4">
+                <span className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">
+                  Navigation
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileOpen(false)}
+                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                  aria-label="Close menu"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Navigation Links */}
+              <div className="flex-1 space-y-1 overflow-y-auto pr-1">
+                {activeMenuItems
+                  .filter((item) => !item.adminOnly || user?.role === 'ADMIN')
+                  .map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+
+                    return (
+                      <Link
+                        key={item.labelKey}
+                        to={item.path}
+                        className={`group relative flex items-center rounded-xl py-3 px-4 transition-colors duration-200 ${
+                          isActive
+                            ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#151D19]/40'
+                        } justify-between`}
+                      >
+                        {isActive && (
+                          <motion.div
+                            layoutId="active-sidebar-bg-mobile"
+                            className="absolute inset-0 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 dark:border-emerald-500/20 rounded-xl"
+                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                          />
+                        )}
+
+                        <div className="flex items-center gap-3 relative z-10">
+                          <Icon className="h-5 w-5" />
+                          <span className="text-sm font-medium">{t(item.labelKey)}</span>
+                        </div>
+
+                        {isActive && (
+                          <ChevronRight className="w-4 h-4 relative z-10 transition-transform duration-300" />
+                        )}
+                      </Link>
+                    );
+                  })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
