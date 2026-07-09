@@ -196,7 +196,7 @@ const buildStoreSnapshot = async (req) => {
 
 export const createCustomer = async (req, res) => {
   try {
-    const { name, mobileNumber, email, address, city, village, taluk, district, state, pinCode, aadhaarNumber, creditLimit, password } = req.body;
+    const { name, username, mobileNumber, email, address, city, village, taluk, district, state, pinCode, aadhaarNumber, creditLimit, password } = req.body;
 
     const inputError = validateCustomerInput(req.body);
     if (inputError) {
@@ -207,6 +207,7 @@ export const createCustomer = async (req, res) => {
     const storeId = getRequestStoreId(req);
     const normalizedMobileNumber = String(mobileNumber).trim();
     const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
+    const normalizedUsername = username ? String(username).trim().toLowerCase() : undefined;
     const existingCustomer = await Customer.findOne({ adminId, storeId, mobileNumber: normalizedMobileNumber });
     if (existingCustomer) {
       return res.status(400).json({ success: false, message: 'Customer with this mobile number already exists in this shop' });
@@ -217,16 +218,25 @@ export const createCustomer = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This email is already used by an admin account. Use the farmer email or leave email blank.' });
     }
 
+    if (normalizedUsername) {
+      const existingUserByUsername = await User.findOne({ username: normalizedUsername });
+      if (existingUserByUsername) {
+        return res.status(400).json({ success: false, message: 'This username is already taken by another account' });
+      }
+    }
+
     let farmer = await User.findOne({
       role: 'FARMER',
       $or: [
         { mobileNumber: normalizedMobileNumber },
         ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+        ...(normalizedUsername ? [{ username: normalizedUsername }] : []),
       ],
     });
     const linkedExistingFarmer = Boolean(farmer);
     if (!farmer) {
       farmer = await User.create({
+        username: normalizedUsername,
         email: normalizedEmail,
         mobileNumber: normalizedMobileNumber,
         password: password ? await hashPassword(password) : await hashPassword(crypto.randomBytes(24).toString('hex')),
@@ -235,6 +245,7 @@ export const createCustomer = async (req, res) => {
         isPhoneVerified: false,
       });
     } else {
+      if (!farmer.username && normalizedUsername) farmer.username = normalizedUsername;
       if (!farmer.email && normalizedEmail) farmer.email = normalizedEmail;
       if (!farmer.mobileNumber && normalizedMobileNumber) farmer.mobileNumber = normalizedMobileNumber;
       if (password) farmer.password = await hashPassword(password);
@@ -247,6 +258,7 @@ export const createCustomer = async (req, res) => {
       storeId,
       name,
       mobileNumber: normalizedMobileNumber,
+      username: normalizedUsername,
       email: normalizedEmail,
       address,
       city,
@@ -663,10 +675,12 @@ export const updateCustomer = async (req, res) => {
     });
     await customer.save();
 
-    if (customer.farmerUserId && (req.body.email || req.body.password)) {
+    if (customer.farmerUserId && (req.body.email !== undefined || req.body.mobileNumber !== undefined || req.body.username !== undefined || req.body.password)) {
       const farmer = await User.findOne({ _id: customer.farmerUserId, role: 'FARMER' });
       if (farmer) {
-        if (req.body.email) farmer.email = String(req.body.email).trim().toLowerCase();
+        if (req.body.username !== undefined) farmer.username = req.body.username ? String(req.body.username).trim().toLowerCase() : undefined;
+        if (req.body.email !== undefined) farmer.email = req.body.email ? String(req.body.email).trim().toLowerCase() : undefined;
+        if (req.body.mobileNumber !== undefined) farmer.mobileNumber = req.body.mobileNumber ? String(req.body.mobileNumber).trim() : undefined;
         if (req.body.password) farmer.password = await hashPassword(req.body.password);
         await farmer.save();
       }

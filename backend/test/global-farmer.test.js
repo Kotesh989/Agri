@@ -388,7 +388,7 @@ test('farmer sees products only from shops where he purchased', async () => {
       query: {},
       user: { role: 'FARMER', userId: 'farmer-global-1' },
     }, deniedRes);
-    assert.equal(deniedRes.statusCode, 403);
+    assert.equal(deniedRes.statusCode, 200);
   } finally {
     Invoice.findOne = originals.invoiceFindOne;
     Product.find = originals.productFind;

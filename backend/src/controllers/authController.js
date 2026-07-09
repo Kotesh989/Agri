@@ -40,11 +40,13 @@ const createDefaultStoreForAdmin = async (admin) => {
   return store;
 };
 
-const createUser = async ({ email, mobileNumber, password, name, role, customerId, adminId, isPhoneVerified }) => {
+const createUser = async ({ username, email, mobileNumber, password, name, role, customerId, adminId, isPhoneVerified, ...extra }) => {
+  const normalizedUsername = username ? String(username).trim().toLowerCase() : undefined;
   const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
   const normalizedMobileNumber = mobileNumber ? String(mobileNumber).trim() : undefined;
   const existingUser = await User.findOne({
     $or: [
+      ...(normalizedUsername ? [{ username: normalizedUsername }] : []),
       ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
       ...(normalizedMobileNumber ? [{ mobileNumber: normalizedMobileNumber }] : []),
     ],
@@ -52,6 +54,7 @@ const createUser = async ({ email, mobileNumber, password, name, role, customerI
   if (existingUser) throw new Error('User already exists');
 
   return User.create({
+    username: normalizedUsername,
     email: normalizedEmail,
     mobileNumber: normalizedMobileNumber,
     password: password ? await hashPassword(password) : undefined,
@@ -60,6 +63,7 @@ const createUser = async ({ email, mobileNumber, password, name, role, customerI
     customerId,
     adminId,
     isPhoneVerified: Boolean(isPhoneVerified),
+    ...extra
   });
 };
 
@@ -117,9 +121,9 @@ export const registerAdmin = async (req, res) => {
 
 export const registerFarmer = async (req, res) => {
   try {
-    const { name, email, mobileNumber, password, address, village, taluk, district, state, preferredLanguage, profilePhoto, adminId, adminEmail } = req.body;
-    if (!name || !email || !mobileNumber || !password) {
-      return res.status(400).json({ success: false, message: 'Name, email, phone number, and password are required' });
+    const { name, username, email, mobileNumber, password, address, village, taluk, district, state, preferredLanguage, profilePhoto, adminId, adminEmail } = req.body;
+    if (!name || !mobileNumber || !password) {
+      return res.status(400).json({ success: false, message: 'Name, phone number, and password are required' });
     }
     const admin = await User.findOne({
       role: 'ADMIN',
@@ -130,6 +134,7 @@ export const registerFarmer = async (req, res) => {
       return res.status(400).json({ success: false, message: 'A valid store admin email is required for farmer registration' });
     }
     const user = await createUser({
+      username,
       email,
       mobileNumber,
       password,
@@ -169,6 +174,7 @@ const loginWithRole = async (req, res, expectedRole) => {
       $or: [
         { email: loginId.toLowerCase() },
         { mobileNumber: loginId },
+        { username: loginId.toLowerCase() },
       ],
     });
     if (!user) {

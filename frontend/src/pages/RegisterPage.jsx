@@ -11,6 +11,7 @@ import { AuthLanguageSelect } from '../components/AuthLanguageSelect';
 const adminForm = { name: '', email: '', password: '', confirmPassword: '' };
 const farmerForm = {
   name: '',
+  username: '',
   email: '',
   mobileNumber: '',
   adminEmail: '',
@@ -27,6 +28,7 @@ const farmerForm = {
 
 const fieldLabels = {
   name: 'auth.fullName',
+  username: 'Username',
   email: 'auth.email',
   mobileNumber: 'auth.phone',
   adminEmail: 'auth.adminStoreEmail',
@@ -43,7 +45,8 @@ const fieldLabels = {
 
 const fieldPlaceholders = {
   name: 'Enter full name',
-  email: 'name@example.com',
+  username: 'Optional username',
+  email: 'name@example.com (Optional)',
   mobileNumber: '10 digit phone number',
   adminEmail: 'auth.adminStoreEmailPlaceholder',
   password: 'At least 8 characters',
@@ -151,7 +154,7 @@ export const RegisterPage = () => {
                   className={`input ${field === 'password' || field === 'confirmPassword' ? 'pr-12' : ''}`}
                   placeholder={fieldPlaceholders[field]?.startsWith('auth.') ? t(fieldPlaceholders[field]) : fieldPlaceholders[field] || ''}
                   minLength={field === 'password' || field === 'confirmPassword' ? 8 : undefined}
-                  required={!['address', 'profilePhoto'].includes(field)}
+                  required={!['address', 'profilePhoto', 'email', 'username'].includes(field)}
                 />
                 )}
                 {(field === 'password' || field === 'confirmPassword') && (

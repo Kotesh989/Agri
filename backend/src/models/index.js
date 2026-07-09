@@ -16,6 +16,7 @@ const baseOptions = {
 };
 
 const userSchema = new Schema({
+  username: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
   email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
   mobileNumber: { type: String, unique: true, sparse: true, trim: true },
   password: String,
@@ -94,6 +95,7 @@ const customerSchema = new Schema({
   storeId: { type: Schema.Types.ObjectId, ref: 'Store', index: true },
   name: { type: String, required: true },
   mobileNumber: { type: String, required: true, trim: true },
+  username: { type: String, trim: true, lowercase: true },
   email: String,
   gstNumber: String,
   address: String,

@@ -78,7 +78,7 @@ export const SalesPage = () => {
                     <td>{sale.customerName}</td>
                     <td>{sale.productName}</td>
                     <td>{sale.quantity}</td>
-                    <td>{sale.category === 'PESTICIDE' && sale.weight ? `${sale.weight} ${sale.weightUnit}` : '-'}</td>
+                    <td>{sale.weight ? `${(sale.quantity * sale.weight).toLocaleString('en-IN')} ${sale.weightUnit || 'Kg'} (${sale.weight} ${sale.weightUnit || 'Kg'}/${sale.unitType || 'Packet'})` : '-'}</td>
                     <td>{sale.unitType || '-'}</td>
                     <td>{formatCurrency(sale.pricePerUnit)}</td>
                     <td>{formatCurrency(sale.totalAmount)}</td>

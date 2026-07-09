@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import {
   AvailabilityRequest,
   Customer,
@@ -6,6 +7,7 @@ import {
   Invoice,
   Product,
   Settings,
+  Store,
   User,
   WishlistItem,
 } from '../models/index.js';
@@ -193,6 +195,8 @@ const publicProduct = (product) => {
     pricePerUnit: Number(product.pricePerUnit ?? product.sellingPrice ?? 0),
     gstRate: Number(product.gstRate ?? product.gstPercentage ?? 0),
     expiryDate: product.expiryDate,
+    pesticideWeight: product.pesticideWeight,
+    pesticideWeightUnit: product.pesticideWeightUnit,
     stockStatus: stock <= 0 ? 'OUT_OF_STOCK' : stock <= low ? 'LOW_STOCK' : 'IN_STOCK',
   };
 };
@@ -249,32 +253,40 @@ export const listShops = async (req, res) => {
   try {
     const invoiceFilter = await getFarmerInvoiceFilter(req);
     const customerIds = await getFarmerCustomerIds(req.user.userId);
-    const [invoices, manualItems] = await Promise.all([
-      Invoice.find(invoiceFilter)
-        .sort({ invoiceDate: -1 })
-        .populate('storeId')
-        .populate('adminId'),
+    const isUserIdValid = mongoose.Types.ObjectId.isValid(req.user.userId);
+    const [invoices, manualItems, allStores, farmerUser] = await Promise.all([
+      Invoice.find(invoiceFilter).populate('storeId').populate('adminId'),
       customerIds.length > 0
-        ? CustomerPurchasedItem.find({ customerId: { $in: customerIds } }).sort({ purchaseDate: -1 }).populate('storeId').populate('adminId')
+        ? CustomerPurchasedItem.find({ customerId: { $in: customerIds }, $or: [{ invoiceId: { $exists: false } }, { invoiceId: null }] }).populate('storeId').populate('adminId')
         : [],
+      Store.find().populate('ownerAdminId'),
+      isUserIdValid ? User.findById(req.user.userId) : null,
     ]);
 
     const shops = new Map();
-    const upsertShop = ({ record, amount, paid, balance, date }) => {
-      const storeInfo = getStoreFallback(record);
-      const storeId = storeInfo.storeId;
-      if (!storeId) return;
-      const existing = shops.get(storeId) || {
+    
+    // Initialize map with all stores
+    allStores.forEach((store) => {
+      const storeId = store._id.toString();
+      const admin = store.ownerAdminId;
+      const isNear = farmerUser
+        ? (store.village && farmerUser.village && store.village.toLowerCase() === farmerUser.village.toLowerCase()) ||
+          (store.taluk && farmerUser.taluk && store.taluk.toLowerCase() === farmerUser.taluk.toLowerCase()) ||
+          (store.district && farmerUser.district && store.district.toLowerCase() === farmerUser.district.toLowerCase()) ||
+          (store.state && farmerUser.state && store.state.toLowerCase() === farmerUser.state.toLowerCase())
+        : false;
+
+      shops.set(storeId, {
         id: storeId,
         storeId,
-        adminId: storeInfo.adminId,
-        shopName: storeInfo.storeName,
-        storeName: storeInfo.storeName,
-        companyName: storeInfo.storeName,
-        name: storeInfo.storeName,
-        ownerName: storeInfo.ownerName,
-        phone: storeInfo.phone,
-        address: storeInfo.address,
+        adminId: admin?._id?.toString(),
+        shopName: store.name,
+        storeName: store.name,
+        companyName: store.name,
+        name: store.name,
+        ownerName: store.ownerName || admin?.name || '',
+        phone: store.mobileNumber || admin?.mobileNumber || '',
+        address: store.address || '',
         totalInvoices: 0,
         totalPurchaseAmount: 0,
         totalAmountSpent: 0,
@@ -282,43 +294,105 @@ export const listShops = async (req, res) => {
         paidAmount: 0,
         totalBalance: 0,
         pendingBalance: 0,
-        lastPurchaseDate: date,
-      };
-      existing.totalInvoices += 1;
-      existing.totalPurchaseAmount += Number(amount || 0);
-      existing.totalAmountSpent += Number(amount || 0);
-      existing.totalPaid += Number(paid || 0);
-      existing.paidAmount += Number(paid || 0);
-      existing.totalBalance += Number(balance || 0);
-      existing.pendingBalance += Number(balance || 0);
-      if (date > existing.lastPurchaseDate) existing.lastPurchaseDate = date;
-      shops.set(storeId, existing);
-    };
+        lastPurchaseDate: null,
+        isNear: Boolean(isNear),
+        hasPurchases: false,
+      });
+    });
 
     invoices.forEach((invoice) => {
-      upsertShop({
-        record: invoice,
-        amount: invoice.totalAmount,
-        paid: invoice.paidAmount,
-        balance: invoice.balanceDue,
-        date: invoice.invoiceDate,
-      });
+      const storeInfo = getStoreFallback(invoice);
+      const storeId = storeInfo.storeId;
+      if (!storeId) return;
+      
+      let existing = shops.get(storeId);
+      if (!existing) {
+        existing = {
+          id: storeId,
+          storeId,
+          adminId: storeInfo.adminId,
+          shopName: storeInfo.storeName,
+          storeName: storeInfo.storeName,
+          companyName: storeInfo.storeName,
+          name: storeInfo.storeName,
+          ownerName: storeInfo.ownerName,
+          phone: storeInfo.phone,
+          address: storeInfo.address,
+          totalInvoices: 0,
+          totalPurchaseAmount: 0,
+          totalAmountSpent: 0,
+          totalPaid: 0,
+          paidAmount: 0,
+          totalBalance: 0,
+          pendingBalance: 0,
+          lastPurchaseDate: invoice.invoiceDate,
+          isNear: false,
+          hasPurchases: true,
+        };
+        shops.set(storeId, existing);
+      }
+      existing.totalInvoices += 1;
+      existing.totalPurchaseAmount += Number(invoice.totalAmount || 0);
+      existing.totalAmountSpent += Number(invoice.totalAmount || 0);
+      existing.totalPaid += Number(invoice.paidAmount || 0);
+      existing.paidAmount += Number(invoice.paidAmount || 0);
+      existing.totalBalance += Number(invoice.balanceDue || 0);
+      existing.pendingBalance += Number(invoice.balanceDue || 0);
+      existing.hasPurchases = true;
+      if (!existing.lastPurchaseDate || invoice.invoiceDate > existing.lastPurchaseDate) {
+        existing.lastPurchaseDate = invoice.invoiceDate;
+      }
     });
 
     manualItems.forEach((item) => {
       const storeInfo = getStoreFallback(item);
-      if (!shops.has(storeInfo.storeId)) {
-        upsertShop({
-          record: item,
-          amount: item.totalAmount,
-          paid: 0,
-          balance: item.totalAmount,
-          date: item.purchaseDate,
-        });
+      const storeId = storeInfo.storeId;
+      if (!storeId) return;
+
+      let existing = shops.get(storeId);
+      if (!existing) {
+        existing = {
+          id: storeId,
+          storeId,
+          adminId: storeInfo.adminId,
+          shopName: storeInfo.storeName,
+          storeName: storeInfo.storeName,
+          companyName: storeInfo.storeName,
+          name: storeInfo.storeName,
+          ownerName: storeInfo.ownerName,
+          phone: storeInfo.phone,
+          address: storeInfo.address,
+          totalInvoices: 0,
+          totalPurchaseAmount: 0,
+          totalAmountSpent: 0,
+          totalPaid: 0,
+          paidAmount: 0,
+          totalBalance: 0,
+          pendingBalance: 0,
+          lastPurchaseDate: item.purchaseDate,
+          isNear: false,
+          hasPurchases: true,
+        };
+        shops.set(storeId, existing);
+      }
+      existing.totalInvoices += 1;
+      existing.totalPurchaseAmount += Number(item.totalAmount || 0);
+      existing.totalAmountSpent += Number(item.totalAmount || 0);
+      existing.totalBalance += Number(item.totalAmount || 0);
+      existing.pendingBalance += Number(item.totalAmount || 0);
+      existing.hasPurchases = true;
+      if (!existing.lastPurchaseDate || item.purchaseDate > existing.lastPurchaseDate) {
+        existing.lastPurchaseDate = item.purchaseDate;
       }
     });
 
-    res.json({ success: true, data: Array.from(shops.values()) });
+    const shopList = Array.from(shops.values()).sort((a, b) => {
+      if (a.isNear && !b.isNear) return -1;
+      if (!a.isNear && b.isNear) return 1;
+      return b.totalPurchaseAmount - a.totalPurchaseAmount || a.name.localeCompare(b.name);
+    });
+
+    res.json({ success: true, data: shopList });
   } catch (error) {
     console.error('List farmer shops error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -366,9 +440,6 @@ export const listShopInvoices = async (req, res) => {
 export const listShopProducts = async (req, res) => {
   try {
     const { storeId } = req.params;
-    if (!(await ensurePurchasedFromStore(req.user.userId, storeId))) {
-      return res.status(403).json({ success: false, message: 'Store access denied' });
-    }
 
     const search = String(req.query.search || '').trim();
     const filter = { storeId };
@@ -452,9 +523,6 @@ export const listCatalog = async (req, res) => {
   try {
     const storeId = req.headers['x-store-id'] || req.user.storeId;
     if (!storeId) return res.status(400).json({ success: false, message: 'Store context is required' });
-    if (!(await ensurePurchasedFromStore(req.user.userId, storeId))) {
-      return res.status(403).json({ success: false, message: 'Store access denied' });
-    }
     const search = String(req.query.search || '').trim();
     const filter = { storeId };
     if (search) {

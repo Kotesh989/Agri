@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Sidebar } from '../components/Sidebar';
 import { Modal } from '../components/Modal';
@@ -540,7 +540,14 @@ export const InvoicesPage = () => {
                           required
                         />
                         {item.productId && (
-                          <div className="text-xs text-gray-500 mt-1">In stock: {availableStock}</div>
+                          <div className="text-xs text-gray-500 mt-1 flex flex-col gap-0.5">
+                            <span>In stock: {availableStock} {product.unitType || product.unit || 'Packets'}</span>
+                            {product.pesticideWeight ? (
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                Total: {(Number(item.quantity || 0) * Number(product.pesticideWeight)).toLocaleString('en-IN')} {product.pesticideWeightUnit || 'Kg'} ({product.pesticideWeight} {product.pesticideWeightUnit || 'Kg'}/{product.unitType || product.unit || 'Packet'})
+                              </span>
+                            ) : null}
+                          </div>
                         )}
                       </div>
                       <input

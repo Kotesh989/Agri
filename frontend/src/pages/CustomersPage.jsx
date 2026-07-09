@@ -21,6 +21,7 @@ const customerTabs = [
 
 const emptyCustomerForm = {
   name: '',
+  username: '',
   mobileNumber: '',
   email: '',
   address: '',
@@ -207,6 +208,7 @@ export const CustomersPage = () => {
       customer
         ? {
             name: customer.name || '',
+            username: customer.username || '',
             mobileNumber: customer.mobileNumber || '',
             email: customer.email || '',
             address: customer.address || '',
@@ -581,6 +583,7 @@ export const CustomersPage = () => {
                               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                 <div><p className="text-xs text-slate-500">Full Name</p><p className="font-semibold">{selectedCustomer.name}</p></div>
                                 <div><p className="text-xs text-slate-500">Mobile Number</p><p className="font-semibold">{selectedCustomer.mobileNumber}</p></div>
+                                <div><p className="text-xs text-slate-500">Username</p><p className="font-semibold">{selectedCustomer.username || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Email</p><p className="font-semibold">{selectedCustomer.email || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Address</p><p className="font-semibold">{selectedCustomer.address || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Village</p><p className="font-semibold">{selectedCustomer.village || '-'}</p></div>
@@ -740,7 +743,7 @@ export const CustomersPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Mobile Number *</label>
+                <label className="block text-sm font-medium mb-1">Phone Number *</label>
                 <input
                   type="tel"
                   value={customerForm.mobileNumber}
@@ -750,13 +753,23 @@ export const CustomersPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
+                <label className="block text-sm font-medium mb-1">Username (Farmer Portal Logins)</label>
+                <input
+                  type="text"
+                  value={customerForm.username}
+                  onChange={(e) => setCustomerForm({ ...customerForm, username: e.target.value })}
+                  className="input"
+                  placeholder="Optional username"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
                 <input
                   type="email"
                   value={customerForm.email}
                   onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
                   className="input"
-                  required
+                  placeholder="Optional email"
                 />
               </div>
               <div>
