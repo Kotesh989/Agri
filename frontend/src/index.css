@@ -5,9 +5,9 @@
 /* Premium Modern Design System Tokens */
 :root {
   --app-bg: #F8FAFC;
-  --app-card: #FFFFFF;
+  --app-card: rgba(255, 255, 255, 0.75);
   --app-border: rgba(16, 185, 129, 0.08);
-  --app-border-hover: rgba(16, 185, 129, 0.2);
+  --app-border-hover: rgba(16, 185, 129, 0.25);
   --app-text: #0F172A;
   --app-text-sec: #475569;
   
@@ -15,26 +15,45 @@
   --primary-emerald-hover: #059669;
   
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(16, 185, 129, 0.04), 0 4px 6px -4px rgba(16, 185, 129, 0.04);
-  --shadow-hover: 0 20px 25px -5px rgba(16, 185, 129, 0.08), 0 8px 10px -6px rgba(16, 185, 129, 0.08);
+  --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 20px 25px -5px rgba(16, 185, 129, 0.03), 0 8px 10px -6px rgba(16, 185, 129, 0.03);
+  --shadow-hover: 0 25px 35px -8px rgba(16, 185, 129, 0.1), 0 12px 16px -8px rgba(16, 185, 129, 0.06);
 }
 
 .dark {
-  --app-bg: #090D0B;
-  --app-card: #0F1512;
-  --app-border: rgba(255, 255, 255, 0.06);
-  --app-border-hover: rgba(16, 185, 129, 0.25);
+  --app-bg: #070B09;
+  --app-card: rgba(15, 21, 18, 0.7);
+  --app-border: rgba(255, 255, 255, 0.04);
+  --app-border-hover: rgba(16, 185, 129, 0.35);
   --app-text: #F8FAFC;
   --app-text-sec: #94A3B8;
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
-  --shadow-hover: 0 20px 25px -5px rgba(16, 185, 129, 0.12), 0 8px 10px -6px rgba(16, 185, 129, 0.08);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+  --shadow-hover: 0 25px 45px -12px rgba(16, 185, 129, 0.22), 0 12px 20px -10px rgba(16, 185, 129, 0.1);
 }
 
-/* Base resets & typography */
+/* Dynamic radial ambient lighting backdrop */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  background: radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.04) 0%, transparent 45%),
+              radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
+  z-index: -1;
+  transition: background 0.3s ease;
+}
+
+.dark body::before {
+  background: radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.06) 0%, transparent 45%),
+              radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+}
+
 body {
   background-color: var(--app-bg);
   color: var(--app-text);
@@ -44,56 +63,67 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--app-text);
-  @apply font-semibold tracking-tight;
+  @apply font-bold tracking-tight;
 }
 
-/* Premium Card Designs */
+/* Premium Card Designs with Glassmorphic effects */
 .card {
   background-color: var(--app-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--app-border);
   box-shadow: var(--shadow-md);
-  @apply rounded-2xl p-6 transition-all duration-300;
+  border-radius: 1.25rem;
+  @apply p-6 transition-all duration-300 ease-out;
 }
 
 .card:hover {
   border-color: var(--app-border-hover);
   box-shadow: var(--shadow-hover);
-  @apply -translate-y-1;
+  transform: translateY(-4px);
 }
 
-/* modern flat input designs */
+/* Modern flat input styles with glowing focus rings */
 .input, .textarea {
-  background-color: var(--app-card);
+  background-color: rgba(255, 255, 255, 0.6);
   color: var(--app-text);
   border: 1px solid var(--app-border);
-  @apply w-full rounded-xl px-4 py-3 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:placeholder:text-gray-500;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  @apply w-full rounded-xl px-4 py-3 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:placeholder:text-gray-500;
 }
 
-/* Premium Button Designs */
+.dark .input, .dark .textarea {
+  background-color: rgba(15, 21, 18, 0.5);
+}
+
+/* Premium Button Designs with gradients and spring scales */
 .btn {
   @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-95;
   background-color: var(--app-card);
   border: 1px solid var(--app-border);
   color: var(--app-text);
   box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .btn:hover:not(:disabled) {
   border-color: var(--app-border-hover);
   box-shadow: var(--shadow-md);
-  @apply -translate-y-0.5;
+  transform: translateY(-1.5px);
 }
 
 .btn-primary {
-  background-color: var(--primary-emerald);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
   color: #ffffff !important;
   border: none;
   box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--primary-emerald-hover);
-  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.45);
 }
 
 .btn-secondary {
@@ -108,15 +138,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-danger {
-  background-color: #EF4444;
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
   color: #ffffff !important;
   border: none;
   box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.3);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #DC2626;
-  box-shadow: 0 6px 20px 0 rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+  box-shadow: 0 6px 20px 0 rgba(239, 68, 68, 0.45);
 }
 
 .btn-sm {
@@ -130,6 +160,8 @@ h1, h2, h3, h4, h5, h6 {
 /* Premium Tables */
 .table-container {
   background-color: var(--app-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--app-border);
   box-shadow: var(--shadow-md);
   @apply rounded-2xl overflow-hidden;
@@ -140,13 +172,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .table thead {
-  background-color: rgba(16, 185, 129, 0.02);
+  background-color: rgba(16, 185, 129, 0.03);
 }
 
 .table th {
   color: var(--app-text-sec);
   border-bottom: 1px solid var(--app-border);
-  @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider;
+  @apply px-6 py-4 text-left text-xs font-bold uppercase tracking-wider;
 }
 
 .table td {
@@ -159,13 +191,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .table tbody tr:hover {
-  background-color: rgba(16, 185, 129, 0.02);
+  background-color: rgba(16, 185, 129, 0.03);
 }
 
 /* Badges */
 .badge {
-  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider;
   border: 1px solid currentColor;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.02);
 }
 
 .badge-green {
@@ -193,7 +226,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: rgba(16, 185, 129, 0.08) !important;
   color: var(--primary-emerald) !important;
   border: 1px solid rgba(16, 185, 129, 0.15);
-  @apply font-semibold rounded-xl;
+  @apply font-bold rounded-xl;
 }
 
 /* Custom Scrollbars */
@@ -206,7 +239,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.25);
   @apply rounded-full hover:bg-emerald-500/40;
 }
 
