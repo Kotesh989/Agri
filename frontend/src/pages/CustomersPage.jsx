@@ -902,18 +902,6 @@ export const CustomersPage = () => {
                   className="input"
                 />
               </div>
-              {!editingCustomer && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Farmer Password</label>
-                  <input
-                    type="password"
-                    value={customerForm.password}
-                    onChange={(e) => setCustomerForm({ ...customerForm, password: e.target.value })}
-                    className="input"
-                    placeholder="Optional; farmer can log in with email OTP"
-                  />
-                </div>
-              )}
               <div className="flex space-x-2">
                 <button type="submit" className="btn btn-primary flex-1">Save</button>
                 <button type="button" onClick={() => setShowCustomerModal(false)} className="btn btn-secondary flex-1">Cancel</button>
