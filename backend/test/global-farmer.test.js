@@ -10,7 +10,7 @@ import {
   listShopProducts,
   listShops,
 } from '../src/controllers/farmerController.js';
-import { Customer, CustomerPurchasedItem, FarmerStoreLink, Invoice, Product, User } from '../src/models/index.js';
+import { Customer, CustomerPurchasedItem, FarmerStoreLink, Invoice, Product, User, Store } from '../src/models/index.js';
 import { hashPassword } from '../src/utils/password.js';
 
 const makeResponse = () => ({
@@ -234,6 +234,7 @@ test('farmer invoice list is scoped by farmerUserId and can include multiple sho
 
 test('farmer sees shops from multiple admins with shop totals', async () => {
   const originalFind = Invoice.find;
+  const originalStoreFind = Store.find;
   const restoreCustomers = mockLinkedCustomers();
   Invoice.find = () => makeInvoiceQuery([
     {
@@ -255,21 +256,28 @@ test('farmer sees shops from multiple admins with shop totals', async () => {
       balanceDue: 0,
     },
   ]);
+  Store.find = () => makeInvoiceQuery([
+    { _id: 'store-a', name: 'Shop A', ownerName: 'Owner A', mobileNumber: '111' },
+    { _id: 'store-b', name: 'Shop B', ownerName: 'Owner B', mobileNumber: '222' },
+  ]);
 
   try {
     const res = makeResponse();
     await listShops({ user: { userId: 'farmer-global-1', role: 'FARMER' } }, res);
     assert.equal(res.body.data.length, 2);
-    assert.deepEqual(res.body.data.map((shop) => shop.storeName), ['Shop A', 'Shop B']);
-    assert.equal(res.body.data[0].pendingBalance, 20);
+    assert.deepEqual(res.body.data.map((shop) => shop.storeName).sort(), ['Shop A', 'Shop B']);
+    const shopA = res.body.data.find(s => s.storeName === 'Shop A');
+    assert.equal(shopA?.pendingBalance, 20);
   } finally {
     Invoice.find = originalFind;
+    Store.find = originalStoreFind;
     restoreCustomers();
   }
 });
 
 test('farmer store list falls back to store or admin name when old invoice has no store snapshot', async () => {
   const originalFind = Invoice.find;
+  const originalStoreFind = Store.find;
   const restoreCustomers = mockLinkedCustomers();
   Invoice.find = () => makeInvoiceQuery([
     {
@@ -291,14 +299,16 @@ test('farmer store list falls back to store or admin name when old invoice has n
       balanceDue: 50,
     },
   ]);
+  Store.find = () => makeInvoiceQuery([]);
 
   try {
     const res = makeResponse();
     await listShops({ user: { userId: 'farmer-global-1', role: 'FARMER' } }, res);
-    assert.deepEqual(res.body.data.map((shop) => shop.storeName), ['Legacy Store Name', 'Admin Fallback Store']);
-    assert.deepEqual(res.body.data.map((shop) => shop.phone), ['111', '888']);
+    assert.deepEqual(res.body.data.map((shop) => shop.storeName).sort(), ['Admin Fallback Store', 'Legacy Store Name']);
+    assert.deepEqual(res.body.data.map((shop) => shop.phone).sort(), ['111', '888']);
   } finally {
     Invoice.find = originalFind;
+    Store.find = originalStoreFind;
     restoreCustomers();
   }
 });
@@ -306,6 +316,7 @@ test('farmer store list falls back to store or admin name when old invoice has n
 test('farmer store list includes old invoices linked through farmer customer records', async () => {
   const originalFind = Invoice.find;
   const originalManualFind = CustomerPurchasedItem.find;
+  const originalStoreFind = Store.find;
   const linkedCustomerId = '64b000000000000000000001';
   const restoreCustomers = mockLinkedCustomers([{ _id: linkedCustomerId }]);
   let capturedFilter;
@@ -325,6 +336,9 @@ test('farmer store list includes old invoices linked through farmer customer rec
     ]);
   };
   CustomerPurchasedItem.find = () => makeInvoiceQuery([]);
+  Store.find = () => makeInvoiceQuery([
+    { _id: 'store-linked', name: 'Linked Customer Store' },
+  ]);
 
   try {
     const res = makeResponse();
@@ -340,6 +354,7 @@ test('farmer store list includes old invoices linked through farmer customer rec
   } finally {
     Invoice.find = originalFind;
     CustomerPurchasedItem.find = originalManualFind;
+    Store.find = originalStoreFind;
     restoreCustomers();
   }
 });
