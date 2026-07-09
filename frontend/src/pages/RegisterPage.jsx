@@ -9,6 +9,29 @@ import loginField from '../assets/login-field.jpg';
 import { AuthLanguageSelect } from '../components/AuthLanguageSelect';
 
 const adminForm = { name: '', email: '', password: '', confirmPassword: '' };
+
+const VILLAGE_LOCATIONS = [
+  { village: 'Kundur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
+  { village: 'Halehal', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
+  { village: 'Nallur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
+  { village: 'Thyavanige', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577544' },
+  { village: 'Sulekere', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577215' },
+  { village: 'Santhebennur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577552' },
+  { village: 'Mayakonda', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577534' },
+  { village: 'Hadadi', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577525' },
+  { village: 'Anaji', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
+  { village: 'Lokikere', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577002' },
+  { village: 'Malebennur', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577530' },
+  { village: 'Bhanuvalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
+  { village: 'Yalodahalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
+  { village: 'Kondajji', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577589' },
+  { village: 'Jagalur Rural', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
+  { village: 'Bilichodu', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577553' },
+  { village: 'Sokke', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
+  { village: 'Gunderi', taluk: 'Holalkere', district: 'Chitradurga', state: 'Karnataka', pinCode: '577526' },
+  { village: 'Bheemasandra', taluk: 'Chitradurga', district: 'Chitradurga', state: 'Karnataka', pinCode: '577501' },
+];
+
 const farmerForm = {
   name: '',
   username: '',
@@ -22,6 +45,7 @@ const farmerForm = {
   taluk: '',
   district: '',
   state: '',
+  pinCode: '',
   preferredLanguage: 'en',
   profilePhoto: '',
 };
@@ -39,6 +63,7 @@ const fieldLabels = {
   taluk: 'auth.taluk',
   district: 'auth.district',
   state: 'auth.state',
+  pinCode: 'Pincode',
   preferredLanguage: 'auth.preferredLanguage',
   profilePhoto: 'auth.profilePhoto',
 };
@@ -56,6 +81,7 @@ const fieldPlaceholders = {
   taluk: 'Taluk',
   district: 'District',
   state: 'State',
+  pinCode: '6-digit pincode',
 };
 
 export const RegisterPage = () => {
@@ -146,6 +172,32 @@ export const RegisterPage = () => {
                     className="input"
                     placeholder="Optional profile photo URL"
                   />
+                ) : field === 'village' && isFarmer ? (
+                  <select
+                    value={value}
+                    onChange={(e) => {
+                      const selected = VILLAGE_LOCATIONS.find(loc => loc.village === e.target.value);
+                      if (selected) {
+                        setFormData({
+                          ...formData,
+                          village: selected.village,
+                          taluk: selected.taluk,
+                          district: selected.district,
+                          state: selected.state,
+                          pinCode: selected.pinCode
+                        });
+                      } else {
+                        setFormData({ ...formData, village: e.target.value });
+                      }
+                    }}
+                    className="input"
+                    required
+                  >
+                    <option value="">Select Village</option>
+                    {VILLAGE_LOCATIONS.map((loc) => (
+                      <option key={loc.village} value={loc.village}>{loc.village}</option>
+                    ))}
+                  </select>
                 ) : (
                 <input
                   type={field === 'password' || field === 'confirmPassword' ? (showPassword ? 'text' : 'password') : field === 'email' || field === 'adminEmail' ? 'email' : 'text'}
@@ -155,6 +207,7 @@ export const RegisterPage = () => {
                   placeholder={fieldPlaceholders[field]?.startsWith('auth.') ? t(fieldPlaceholders[field]) : fieldPlaceholders[field] || ''}
                   minLength={field === 'password' || field === 'confirmPassword' ? 8 : undefined}
                   required={!['address', 'profilePhoto', 'email', 'username'].includes(field)}
+                  readOnly={['taluk', 'district', 'state', 'pinCode'].includes(field) && isFarmer}
                 />
                 )}
                 {(field === 'password' || field === 'confirmPassword') && (

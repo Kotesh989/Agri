@@ -19,6 +19,28 @@ const customerTabs = [
   { id: 'HISTORY', labelKey: 'customers.purchaseHistory' },
 ];
 
+const VILLAGE_LOCATIONS = [
+  { village: 'Kundur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
+  { village: 'Halehal', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577213' },
+  { village: 'Nallur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
+  { village: 'Thyavanige', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577544' },
+  { village: 'Sulekere', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577215' },
+  { village: 'Santhebennur', taluk: 'Channagiri', district: 'Davangere', state: 'Karnataka', pinCode: '577552' },
+  { village: 'Mayakonda', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577534' },
+  { village: 'Hadadi', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577525' },
+  { village: 'Anaji', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577512' },
+  { village: 'Lokikere', taluk: 'Davangere', district: 'Davangere', state: 'Karnataka', pinCode: '577002' },
+  { village: 'Malebennur', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577530' },
+  { village: 'Bhanuvalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
+  { village: 'Yalodahalli', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577516' },
+  { village: 'Kondajji', taluk: 'Harihar', district: 'Davangere', state: 'Karnataka', pinCode: '577589' },
+  { village: 'Jagalur Rural', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
+  { village: 'Bilichodu', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577553' },
+  { village: 'Sokke', taluk: 'Jagalur', district: 'Davangere', state: 'Karnataka', pinCode: '577528' },
+  { village: 'Gunderi', taluk: 'Holalkere', district: 'Chitradurga', state: 'Karnataka', pinCode: '577526' },
+  { village: 'Bheemasandra', taluk: 'Chitradurga', district: 'Chitradurga', state: 'Karnataka', pinCode: '577501' },
+];
+
 const emptyCustomerForm = {
   name: '',
   username: '',
@@ -26,6 +48,9 @@ const emptyCustomerForm = {
   email: '',
   address: '',
   city: '',
+  village: '',
+  taluk: '',
+  district: '',
   state: '',
   pinCode: '',
   creditLimit: '0',
@@ -213,6 +238,9 @@ export const CustomersPage = () => {
             email: customer.email || '',
             address: customer.address || '',
             city: customer.city || '',
+            village: customer.village || '',
+            taluk: customer.taluk || '',
+            district: customer.district || '',
             state: customer.state || '',
             pinCode: customer.pinCode || '',
             creditLimit: String(customer.creditLimit || 0),
@@ -771,6 +799,60 @@ export const CustomersPage = () => {
                   className="input"
                   placeholder="Optional email"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Village *</label>
+                <select
+                  value={customerForm.village}
+                  onChange={(e) => {
+                    const selected = VILLAGE_LOCATIONS.find(loc => loc.village === e.target.value);
+                    if (selected) {
+                      setCustomerForm({
+                        ...customerForm,
+                        village: selected.village,
+                        taluk: selected.taluk,
+                        district: selected.district,
+                        state: selected.state,
+                        pinCode: selected.pinCode
+                      });
+                    } else {
+                      setCustomerForm({ ...customerForm, village: e.target.value });
+                    }
+                  }}
+                  className="input"
+                  required
+                >
+                  <option value="">Select Village</option>
+                  {VILLAGE_LOCATIONS.map((loc) => (
+                    <option key={loc.village} value={loc.village}>
+                      {loc.village}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Taluk / Tehsil</label>
+                  <input
+                    type="text"
+                    value={customerForm.taluk}
+                    onChange={(e) => setCustomerForm({ ...customerForm, taluk: e.target.value })}
+                    className="input bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
+                    readOnly
+                    placeholder="Auto-filled"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">District</label>
+                  <input
+                    type="text"
+                    value={customerForm.district}
+                    onChange={(e) => setCustomerForm({ ...customerForm, district: e.target.value })}
+                    className="input bg-slate-50 dark:bg-slate-900 cursor-not-allowed"
+                    readOnly
+                    placeholder="Auto-filled"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Address</label>
