@@ -48,6 +48,8 @@ export const Sidebar = () => {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
 
+  const activeMenuItems = user?.role === 'FARMER' ? farmerMenuItems : menuItems;
+
   // Keyboard shortcut Ctrl + B to toggle sidebar
   useEffect(() => {
     const handleKeyDown = (e) => {
