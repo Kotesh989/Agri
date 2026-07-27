@@ -1,8 +1,8 @@
-const CACHE_NAME = 'agri-smart-pwa-v6';
+const CACHE_NAME = 'agri-smart-pwa-v7';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/favicon.ico',
+  '/agri-icon.svg',
 ];
 
 // Install Service Worker
@@ -38,15 +38,26 @@ self.addEventListener('fetch', (event) => {
   // Handle HTML navigation requests by serving index.html (Network-first SPA fallback)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch('/index.html')
+      fetch(event.request)
         .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put('/index.html', responseClone);
-          });
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('/index.html', responseClone);
+            });
+          }
           return response;
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(async () => {
+          const cachedResponse = await caches.match('/index.html') || await caches.match('/');
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return new Response(
+            '<!DOCTYPE html><html lang="en"><head><title>Offline</title><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family: sans-serif; text-align: center; padding: 2rem;"><h2>You are currently offline</h2><p>Please check your internet connection and reload.</p></body></html>',
+            { status: 200, headers: { 'Content-Type': 'text/html' } }
+          );
+        })
     );
     return;
   }
